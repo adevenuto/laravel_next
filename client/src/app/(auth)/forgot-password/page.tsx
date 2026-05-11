@@ -30,8 +30,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Reset password</CardTitle>
           <CardDescription>Enter your email and we&apos;ll send a reset link.</CardDescription>
@@ -63,7 +62,6 @@ export default function ForgotPasswordPage() {
             </p>
           </CardFooter>
         </form>
-      </Card>
-    </div>
+    </Card>
   );
 }

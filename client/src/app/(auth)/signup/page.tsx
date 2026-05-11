@@ -34,8 +34,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Create account</CardTitle>
           <CardDescription>Sign up to get started.</CardDescription>
@@ -102,6 +101,5 @@ export default function SignupPage() {
           </CardFooter>
         </form>
       </Card>
-    </div>
   );
 }
