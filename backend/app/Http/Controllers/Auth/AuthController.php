@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\DuplicateRegistrationNotification;
+use App\Notifications\WelcomeNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,19 +24,19 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $existing = User::where('email', $validated['email'])->exists();
+        $existing = User::where('email', $validated['email'])->first();
 
         if (! $existing) {
-            User::create([
+            $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
             ]);
-            // TODO: send a "welcome" email here.
+            $user->notify(new WelcomeNotification);
         } else {
-            // TODO: send the existing user a "someone tried to register with your email" notice.
-            // For now we just spend a bcrypt round to keep timing uniform with the create path.
+            // Spend a bcrypt round to keep timing uniform with the create path.
             Hash::make($validated['password']);
+            $existing->notify(new DuplicateRegistrationNotification);
         }
 
         // Same response either way — no enumeration leak.

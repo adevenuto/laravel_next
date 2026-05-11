@@ -3,8 +3,11 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Notifications\DuplicateRegistrationNotification;
+use App\Notifications\WelcomeNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
 
@@ -12,8 +15,10 @@ class AuthControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_register_creates_user_and_returns_generic_message(): void
+    public function test_register_creates_user_sends_welcome_and_returns_generic_message(): void
     {
+        Notification::fake();
+
         $response = $this->postJson('/api/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
@@ -26,12 +31,18 @@ class AuthControllerTest extends TestCase
             ->assertJsonMissing(['user', 'token']);
 
         $this->assertDatabaseHas('users', ['email' => 'test@example.com']);
-        $this->assertGuest(); // register no longer auto-logs in
+        $this->assertGuest();
+
+        $user = User::where('email', 'test@example.com')->first();
+        Notification::assertSentTo($user, WelcomeNotification::class);
+        Notification::assertNotSentTo($user, DuplicateRegistrationNotification::class);
     }
 
-    public function test_register_returns_same_response_for_existing_email(): void
+    public function test_register_notifies_existing_user_and_returns_same_response(): void
     {
-        User::factory()->create(['email' => 'existing@example.com']);
+        Notification::fake();
+
+        $existing = User::factory()->create(['email' => 'existing@example.com']);
 
         $response = $this->postJson('/api/register', [
             'name' => 'Another User',
@@ -45,8 +56,13 @@ class AuthControllerTest extends TestCase
             ->assertJsonStructure(['message'])
             ->assertJsonMissing(['user', 'token']);
 
-        // And no duplicate user is created.
+        // No duplicate user is created.
         $this->assertEquals(1, User::where('email', 'existing@example.com')->count());
+
+        // The existing user gets a "someone tried to register" notice,
+        // and crucially NOT a Welcome (which would leak that they're new).
+        Notification::assertSentTo($existing, DuplicateRegistrationNotification::class);
+        Notification::assertNotSentTo($existing, WelcomeNotification::class);
     }
 
     public function test_user_can_login(): void
