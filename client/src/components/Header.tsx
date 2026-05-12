@@ -11,6 +11,8 @@ import { useState } from "react";
 
 const NAV_LINKS: { href: string; label: string }[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/my/portfolio", label: "Portfolio" },
+  { href: "/my/blog", label: "Blog" },
 ];
 
 export function Header() {
