@@ -30,6 +30,7 @@ This project uses **Laravel Sanctum in SPA mode**: the Next.js client authentica
 | Client  | `client/src/components/ProtectedRoute.tsx`                            | Used by `(app)/layout.tsx`; redirects if !auth |
 | Client  | `client/src/components/Header.tsx`                                    | Adapts CTAs by `user` + `pathname`            |
 | Client  | `client/src/components/MainLayout.tsx`                                | Shared shell: Header + main + Footer          |
+| Client  | `client/src/components/Footer.tsx`                                    | Footer rendered inside `MainLayout`           |
 | Client  | `client/src/app/(public|auth|app)/layout.tsx`                         | Per-group chrome (see §8)                     |
 | Backend | `backend/bootstrap/app.php`                                           | `statefulApi()` enables SPA mode              |
 | Backend | `backend/config/cors.php`                                             | `supports_credentials: true`; env origins     |
@@ -240,7 +241,10 @@ client/src/app/
 │   └── reset-password/page.tsx     → /reset-password
 └── (app)/
     ├── layout.tsx          ← <ProtectedRoute><MainLayout>
-    └── dashboard/page.tsx          → /dashboard
+    ├── dashboard/page.tsx          → /dashboard
+    └── my/
+        ├── portfolio/page.tsx      → /my/portfolio  (placeholder)
+        └── blog/page.tsx           → /my/blog       (placeholder)
 ```
 
 Parens don't affect URLs — they're grouping for layout inheritance.
@@ -259,7 +263,7 @@ Parens don't affect URLs — they're grouping for layout inheritance.
 | Logged out | `/login`         | Get started                  |
 | Logged out | `/signup`        | Sign in                      |
 | Logged out | other auth pages | Sign in · Get started        |
-| Logged in  | (anywhere)       | Dashboard · email · Logout   |
+| Logged in  | (anywhere)       | Dashboard · Portfolio · Blog · email · Logout |
 
 Mobile (`< md`) collapses everything into a hamburger that opens a right-side `Sheet` drawer.
 

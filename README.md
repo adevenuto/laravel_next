@@ -1,6 +1,6 @@
-# Next + Laravel — CI/CD Learning Project
+# Next + Laravel
 
-Monorepo with a Next.js frontend (`client/`) and a Laravel backend (`backend/`), wired up for CI/CD deployment to Hostinger via GitHub Actions and SSH.
+Monorepo with a Next.js frontend (`client/`) and a Laravel backend (`backend/`). Deploys to Hostinger via GitHub Actions and SSH.
 
 ## Stack
 
@@ -12,48 +12,63 @@ Monorepo with a Next.js frontend (`client/`) and a Laravel backend (`backend/`),
 
 ```
 next_laravel/
-├── .github/workflows/
-│   ├── backend.yml          # Laravel CI + deploy
-│   └── client.yml           # Next.js CI + deploy
-├── backend/                 # Laravel API
-│   ├── app/Http/Controllers/Auth/
-│   │   ├── AuthController.php
-│   │   └── PasswordResetController.php
-│   ├── app/Models/User.php
-│   ├── config/cors.php
-│   ├── database/migrations/2024_01_01_000000_create_users_table.php
-│   ├── routes/api.php
+├── .github/workflows/                  # CI + deploy pipelines (in progress)
+├── backend/                            # Laravel API
+│   ├── app/
+│   │   ├── Http/Controllers/Auth/
+│   │   │   ├── AuthController.php
+│   │   │   └── PasswordResetController.php
+│   │   ├── Models/User.php
+│   │   ├── Notifications/
+│   │   │   ├── WelcomeNotification.php
+│   │   │   └── DuplicateRegistrationNotification.php
+│   │   └── Providers/AppServiceProvider.php
+│   ├── bootstrap/app.php               # statefulApi() enables Sanctum SPA mode
+│   ├── config/{cors,sanctum,...}.php
+│   ├── database/migrations/            # users, sessions, personal_access_tokens, cache, jobs
+│   ├── routes/api.php                  # throttle:5,1 on auth; auth:sanctum on protected
 │   ├── tests/Feature/Auth/AuthControllerTest.php
-│   ├── tests/TestCase.php
 │   ├── .env.example
 │   ├── composer.json
 │   ├── phpunit.xml
 │   └── pint.json
-└── client/                  # Next.js app
-    ├── src/
-    │   ├── app/
-    │   │   ├── layout.tsx
-    │   │   ├── page.tsx
-    │   │   ├── globals.css
-    │   │   ├── login/page.tsx
-    │   │   ├── signup/page.tsx
-    │   │   ├── forgot-password/page.tsx
-    │   │   └── dashboard/page.tsx
-    │   ├── components/
-    │   │   ├── Header.tsx
-    │   │   ├── ProtectedRoute.tsx
-    │   │   └── ui/ (button, card, input, label)
-    │   ├── context/AuthContext.tsx
-    │   ├── lib/api.ts
-    │   ├── lib/utils.ts
-    │   └── middleware.ts
-    ├── .env.example
-    ├── .eslintrc.json
-    ├── next.config.ts
-    ├── package.json
-    ├── postcss.config.mjs
-    ├── tailwind.config.ts
-    └── tsconfig.json
+├── client/                             # Next.js app
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── layout.tsx                       # AuthProvider
+│   │   │   ├── globals.css
+│   │   │   ├── (public)/
+│   │   │   │   ├── layout.tsx                   # MainLayout
+│   │   │   │   └── page.tsx                     → /
+│   │   │   ├── (auth)/
+│   │   │   │   ├── layout.tsx                   # MainLayout + centered flex
+│   │   │   │   ├── login/page.tsx               → /login
+│   │   │   │   ├── signup/page.tsx              → /signup
+│   │   │   │   ├── forgot-password/page.tsx     → /forgot-password
+│   │   │   │   └── reset-password/page.tsx      → /reset-password
+│   │   │   └── (app)/
+│   │   │       ├── layout.tsx                   # <ProtectedRoute><MainLayout>
+│   │   │       ├── dashboard/page.tsx           → /dashboard
+│   │   │       └── my/
+│   │   │           ├── portfolio/page.tsx       → /my/portfolio (placeholder)
+│   │   │           └── blog/page.tsx            → /my/blog (placeholder)
+│   │   ├── components/
+│   │   │   ├── Header.tsx                       # adaptive nav + mobile Sheet
+│   │   │   ├── Footer.tsx
+│   │   │   ├── MainLayout.tsx                   # Header + main + Footer shell
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   └── ui/                              # shadcn: button, card, input, label, sheet
+│   │   ├── context/AuthContext.tsx              # hydrates user from /api/user
+│   │   ├── lib/api.ts                           # cookie-aware fetch + CSRF helper
+│   │   └── lib/utils.ts
+│   ├── .env.example
+│   ├── .eslintrc.json
+│   ├── next.config.ts
+│   ├── package.json
+│   ├── postcss.config.mjs
+│   ├── tailwind.config.ts
+│   └── tsconfig.json
+└── docs/AUTH.md                        # Auth architecture deep-dive
 ```
 
 ## Initial setup
@@ -72,12 +87,12 @@ git push -u origin main
 
 ### 2. Backend — Laravel install
 
-The `backend/` folder contains app code only; you need to scaffold a fresh Laravel skeleton on top of it.
+The Laravel skeleton is fully committed (`bootstrap/`, `public/`, `artisan`, full `config/`). A fresh clone only needs vendor + env setup.
 
 ```bash
 cd backend
 
-# Pull in Laravel skeleton + dependencies (uses our composer.json)
+# Install dependencies
 composer install
 
 # Copy env and generate key
@@ -98,8 +113,6 @@ php artisan migrate
 php artisan serve   # → http://localhost:8000
 ```
 
-> If you don't already have a Laravel app structure, run `composer create-project laravel/laravel temp` once in a sibling folder, copy over the missing skeleton files (`bootstrap/`, `public/`, `artisan`, `config/app.php`, etc.) into `backend/`, then keep our overrides above.
-
 ### 3. Frontend — Next.js install
 
 ```bash
@@ -112,7 +125,7 @@ npm run dev   # → http://localhost:3000
 
 ### 4. shadcn/ui (already wired up)
 
-The four components used (`button`, `card`, `input`, `label`) are committed under `client/src/components/ui/`. To add more later:
+The components used (`button`, `card`, `input`, `label`, `sheet`) are committed under `client/src/components/ui/`. To add more later:
 
 ```bash
 cd client
@@ -147,22 +160,29 @@ npm start                      # serve production build
 
 ## API endpoints
 
-| Method | Path                  | Auth | Description       |
-| ------ | --------------------- | ---- | ----------------- |
-| POST   | `/api/register`       | No   | Create account    |
-| POST   | `/api/login`          | No   | Issue Sanctum token |
-| POST   | `/api/password-reset` | No   | Send reset link   |
-| POST   | `/api/logout`         | Yes  | Revoke token      |
-| GET    | `/api/user`           | Yes  | Current user      |
+All public auth routes are rate-limited with `throttle:5,1` (5 req/min/IP). Protected routes use `auth:sanctum` (session cookie or Bearer token). See `docs/AUTH.md` for the full flow.
+
+| Method | Path                          | Auth | Description                          |
+| ------ | ----------------------------- | ---- | ------------------------------------ |
+| POST   | `/api/register`               | No   | Create account (no email enumeration)|
+| POST   | `/api/login`                  | No   | Establish session / issue token      |
+| POST   | `/api/password-reset`         | No   | Email a reset link (always 200)      |
+| POST   | `/api/password-reset/confirm` | No   | Set new password with token          |
+| POST   | `/api/logout`                 | Yes  | End session + revoke token           |
+| GET    | `/api/user`                   | Yes  | Current authenticated user           |
 
 ## Pages
 
-| Route              | Auth | Purpose                       |
-| ------------------ | ---- | ----------------------------- |
-| `/login`           | No   | Sign in                       |
-| `/signup`          | No   | Create account                |
-| `/forgot-password` | No   | Request password reset link   |
-| `/dashboard`       | Yes  | Welcome, {user.name} screen   |
+| Route              | Auth | Purpose                                  |
+| ------------------ | ---- | ---------------------------------------- |
+| `/`                | No   | Landing page                             |
+| `/login`           | No   | Sign in                                  |
+| `/signup`          | No   | Create account                           |
+| `/forgot-password` | No   | Request password reset link              |
+| `/reset-password`  | No   | Set new password (reached from email)    |
+| `/dashboard`       | Yes  | Welcome, {user.name} screen              |
+| `/my/portfolio`    | Yes  | Portfolio area (placeholder)             |
+| `/my/blog`         | Yes  | Blog area (placeholder)                  |
 
 ## Deploying to Hostinger
 
