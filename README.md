@@ -1,12 +1,12 @@
 # Next + Laravel
 
-Monorepo with a Next.js frontend (`client/`) and a Laravel backend (`backend/`). Deploys to Hostinger via GitHub Actions and SSH.
+Monorepo with a Next.js frontend (`client/`) and a Laravel backend (`backend/`). Deploys to Azure via GitHub Actions.
 
 ## Stack
 
 - **Frontend**: Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui
 - **Backend**: Laravel 11 + Sanctum (token auth) + MySQL
-- **CI/CD**: GitHub Actions → SSH to Hostinger
+- **CI/CD**: GitHub Actions → Azure App Service (OIDC)
 
 ## Folder structure
 
@@ -48,10 +48,7 @@ next_laravel/
 │   │   │   │   └── reset-password/page.tsx      → /reset-password
 │   │   │   └── (app)/
 │   │   │       ├── layout.tsx                   # <ProtectedRoute><MainLayout>
-│   │   │       ├── dashboard/page.tsx           → /dashboard
-│   │   │       └── my/
-│   │   │           ├── portfolio/page.tsx       → /my/portfolio (placeholder)
-│   │   │           └── blog/page.tsx            → /my/blog (placeholder)
+│   │   │       └── dashboard/page.tsx           → /dashboard
 │   │   ├── components/
 │   │   │   ├── Header.tsx                       # adaptive nav + mobile Sheet
 │   │   │   ├── Footer.tsx
@@ -181,61 +178,46 @@ All public auth routes are rate-limited with `throttle:5,1` (5 req/min/IP). Prot
 | `/forgot-password` | No   | Request password reset link              |
 | `/reset-password`  | No   | Set new password (reached from email)    |
 | `/dashboard`       | Yes  | Welcome, {user.name} screen              |
-| `/my/portfolio`    | Yes  | Portfolio area (placeholder)             |
-| `/my/blog`         | Yes  | Blog area (placeholder)                  |
 
-## Deploying to Hostinger
+## Deploying to Azure
 
-### One-time Hostinger setup
+> **Outline only.** Workflow YAML and `az` CLI step-by-steps are a follow-up. Target stack: **Azure App Service (Linux)** for both apps + **Azure Database for MySQL Flexible Server**. GitHub Actions authenticates to Azure via **OIDC federated credentials** (no long-lived secrets).
 
-1. **Enable SSH access** in hPanel → Advanced → SSH Access. Note the host, port, username.
-2. **Generate an SSH keypair** locally and add the public key to Hostinger:
-   ```bash
-   ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/hostinger_deploy
-   # Paste hostinger_deploy.pub into Hostinger → SSH → Manage SSH Keys
-   ```
-3. **Create the MySQL database** in hPanel → Databases. Note db name, user, password, host.
-4. **Choose folder layout** on Hostinger (example):
-   - Backend: `/home/<user>/domains/api.yourdomain.com/public_html`
-   - Client: `/home/<user>/domains/yourdomain.com/next-app`
-5. **Point the API subdomain** (e.g. `api.yourdomain.com`) at the backend's `public/` folder. For Laravel on shared hosting, use a `.htaccess` redirect or symlink so `public_html` serves `backend/public/`.
-6. **Install Node + pm2** on Hostinger (VPS plans only — shared hosting cannot run Next.js standalone).
+### Azure resources to create
+
+1. **Resource group** — one group to hold everything (e.g. `rg-next-laravel`).
+2. **App Service Plan** — Linux, B1 or higher.
+3. **App Service: backend** — runtime PHP 8.x; document root → `backend/public`.
+4. **App Service: client** — runtime Node 20+; start command runs the built Next.js standalone output.
+5. **Azure Database for MySQL Flexible Server** — same region as the App Services. Create a `next_laravel` database; configure the firewall.
+6. **Azure AD app registration** — for GitHub Actions OIDC. Add federated credentials for the repo's `main` branch and grant the registration the Contributor role on the resource group.
+7. **Custom domains + TLS** — bind `yourdomain.com` to the client App Service and `api.yourdomain.com` to the backend App Service; use App Service Managed Certificates for TLS.
 
 ### GitHub repository secrets
 
-In your repo → Settings → Secrets and variables → Actions, add:
+In repo → Settings → Secrets and variables → Actions:
 
-| Secret                    | Example value                                       |
-| ------------------------- | --------------------------------------------------- |
-| `HOSTINGER_SSH_HOST`      | `123.45.67.89` or `yourdomain.com`                  |
-| `HOSTINGER_SSH_PORT`      | `65002` (Hostinger default) or `22`                 |
-| `HOSTINGER_SSH_USER`      | `u123456789`                                        |
-| `HOSTINGER_SSH_KEY`       | contents of `~/.ssh/hostinger_deploy` (private key) |
-| `HOSTINGER_BACKEND_PATH`  | `/home/u123456789/domains/api.yourdomain.com/backend` |
-| `HOSTINGER_CLIENT_PATH`   | `/home/u123456789/domains/yourdomain.com/next-app`  |
-| `NEXT_PUBLIC_API_URL`     | `https://api.yourdomain.com`                        |
+| Secret                   | Source                                              |
+| ------------------------ | --------------------------------------------------- |
+| `AZURE_TENANT_ID`        | Azure AD tenant of the app registration             |
+| `AZURE_CLIENT_ID`        | Client ID of the app registration                   |
+| `AZURE_SUBSCRIPTION_ID`  | Subscription holding the resource group             |
+| `AZURE_BACKEND_APP_NAME` | App Service name for Laravel                        |
+| `AZURE_CLIENT_APP_NAME`  | App Service name for Next.js                        |
+| `NEXT_PUBLIC_API_URL`    | `https://api.yourdomain.com`                        |
 
-### One-time server setup (after first deploy)
+DB credentials, `APP_KEY`, and `CORS_ALLOWED_ORIGINS` live as **App Settings** on the backend App Service — not as GitHub secrets.
 
-SSH into Hostinger and create `backend/.env` (the workflow excludes `.env` from rsync):
+### One-time backend bootstrap (after first deploy)
+
+Open the backend App Service → SSH (or `az webapp ssh -g <rg> -n <app>`):
 
 ```bash
-ssh -p 65002 u123456789@yourdomain.com
-cd /home/u123456789/domains/api.yourdomain.com/backend
-
+cd /home/site/wwwroot
 cp .env.example .env
 php artisan key:generate
-nano .env   # set DB_*, APP_URL, CORS_ALLOWED_ORIGINS=https://yourdomain.com
+# DB_*, APP_URL, CORS_ALLOWED_ORIGINS come from App Settings (preferred)
 php artisan migrate --force
-```
-
-For the client (VPS):
-
-```bash
-cd /home/u123456789/domains/yourdomain.com/next-app
-pm2 start server.js --name next-laravel-client
-pm2 save
-pm2 startup
 ```
 
 ### Trigger a deploy
@@ -244,16 +226,15 @@ pm2 startup
 git push origin main
 ```
 
-Both workflows run independently and only fire when files in their folder change.
+Azure-targeted workflows will live in `.github/workflows/` (to be authored as a follow-up).
 
 ## Pre-deployment checklist
 
-- [ ] SSH keypair generated; public key added to Hostinger; private key in `HOSTINGER_SSH_KEY` secret
-- [ ] All seven GitHub secrets set
-- [ ] Hostinger MySQL database created; credentials ready
-- [ ] DNS / subdomains pointing where you want them
-- [ ] `backend/.env` created on the server (db creds, `APP_KEY`, `CORS_ALLOWED_ORIGINS`)
+- [ ] Resource group + App Service Plan + two App Services + MySQL Flexible Server provisioned
+- [ ] Azure AD app registration created; federated credentials added for this repo's `main` branch
+- [ ] All six GitHub secrets set
+- [ ] DB credentials, `APP_KEY`, `CORS_ALLOWED_ORIGINS` set as App Settings on the backend App Service
 - [ ] First-run migrations executed (`php artisan migrate --force`)
-- [ ] (VPS only) Node ≥ 20 + pm2 installed for the Next.js app
-- [ ] Web server pointed at `backend/public/` for the API
-- [ ] Test push to `main` and watch the Actions tab
+- [ ] Custom domains bound + TLS issued on both App Services
+- [ ] Backend App Service document root set to `backend/public`
+- [ ] Workflows authored in `.github/workflows/` and verified via a test push to `main`

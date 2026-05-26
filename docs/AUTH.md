@@ -241,10 +241,7 @@ client/src/app/
 │   └── reset-password/page.tsx     → /reset-password
 └── (app)/
     ├── layout.tsx          ← <ProtectedRoute><MainLayout>
-    ├── dashboard/page.tsx          → /dashboard
-    └── my/
-        ├── portfolio/page.tsx      → /my/portfolio  (placeholder)
-        └── blog/page.tsx           → /my/blog       (placeholder)
+    └── dashboard/page.tsx          → /dashboard
 ```
 
 Parens don't affect URLs — they're grouping for layout inheritance.
@@ -263,7 +260,7 @@ Parens don't affect URLs — they're grouping for layout inheritance.
 | Logged out | `/login`         | Get started                  |
 | Logged out | `/signup`        | Sign in                      |
 | Logged out | other auth pages | Sign in · Get started        |
-| Logged in  | (anywhere)       | Dashboard · Portfolio · Blog · email · Logout |
+| Logged in  | (anywhere)       | Dashboard · email · Logout   |
 
 Mobile (`< md`) collapses everything into a hamburger that opens a right-side `Sheet` drawer.
 
