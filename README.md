@@ -1,12 +1,12 @@
 # Next + Laravel
 
-Monorepo with a Next.js frontend (`client/`) and a Laravel backend (`backend/`). Deploys to Azure via GitHub Actions.
+Monorepo with a Next.js frontend (`client/`) and a Laravel backend (`backend/`). Deploys to a single AWS EC2 instance (free-tier) via GitHub Actions over SSH.
 
 ## Stack
 
 - **Frontend**: Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui
 - **Backend**: Laravel 11 + Sanctum (token auth) + MySQL
-- **CI/CD**: GitHub Actions → Azure App Service (OIDC)
+- **CI/CD**: GitHub Actions → AWS EC2 (SSH + rsync) + RDS MySQL
 
 ## Folder structure
 
@@ -179,46 +179,110 @@ All public auth routes are rate-limited with `throttle:5,1` (5 req/min/IP). Prot
 | `/reset-password`  | No   | Set new password (reached from email)    |
 | `/dashboard`       | Yes  | Welcome, {user.name} screen              |
 
-## Deploying to Azure
+## Deploying to AWS
 
-> **Outline only.** Workflow YAML and `az` CLI step-by-steps are a follow-up. Target stack: **Azure App Service (Linux)** for both apps + **Azure Database for MySQL Flexible Server**. GitHub Actions authenticates to Azure via **OIDC federated credentials** (no long-lived secrets).
+Free-tier setup, designed to cost **$0/mo for 12 months**: a single EC2 `t2.micro` running both apps behind nginx, plus an RDS `db.t3.micro` MySQL instance. Workflows in `.github/workflows/` deploy on push to `main` via SSH + rsync.
 
-### Azure resources to create
+### Architecture
 
-1. **Resource group** — one group to hold everything (e.g. `rg-next-laravel`).
-2. **App Service Plan** — Linux, B1 or higher.
-3. **App Service: backend** — runtime PHP 8.x; document root → `backend/public`.
-4. **App Service: client** — runtime Node 20+; start command runs the built Next.js standalone output.
-5. **Azure Database for MySQL Flexible Server** — same region as the App Services. Create a `next_laravel` database; configure the firewall.
-6. **Azure AD app registration** — for GitHub Actions OIDC. Add federated credentials for the repo's `main` branch and grant the registration the Contributor role on the resource group.
-7. **Custom domains + TLS** — bind `yourdomain.com` to the client App Service and `api.yourdomain.com` to the backend App Service; use App Service Managed Certificates for TLS.
+```
+GitHub push (main)
+      │
+      ▼
+GitHub Actions runner
+  • runs tests / lint / type-check
+  • builds Next.js standalone bundle
+      │  (rsync over SSH)
+      ▼
+EC2 t2.micro (Ubuntu 22.04)
+  ├─ nginx :80               → reverse proxy
+  ├─ PHP-FPM 8.3 (Laravel)   ← /api/*, /sanctum/*
+  └─ Node 20 + pm2 (Next.js) ← everything else (127.0.0.1:3000)
+                  │
+                  ▼
+       RDS MySQL 8.0 (db.t3.micro, private)
+```
+
+### Files in this repo that drive the deploy
+
+| Path                                  | Purpose                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `deploy/bootstrap.sh`                 | One-shot server provisioner (run once on a fresh EC2)        |
+| `deploy/nginx.conf`                   | nginx vhost — splits traffic between Laravel and Next.js     |
+| `deploy/.env.production.example`      | Template for `backend/.env` on the server                    |
+| `.github/workflows/backend.yml`       | Test + rsync + migrate + reload PHP-FPM                      |
+| `.github/workflows/client.yml`        | Lint + build standalone + rsync + pm2 reload                 |
+
+### One-time AWS setup (Console UI)
+
+In `us-east-1`:
+
+1. **EC2 key pair** — `laravel-next-ec2`, ED25519. Save private key to `~/.ssh/laravel-next-ec2.pem`, `chmod 400`.
+2. **Security group `sg-laravel-ec2`** — inbound 22, 80, 443 from `0.0.0.0/0`.
+3. **Security group `sg-laravel-rds`** — inbound 3306 from `sg-laravel-ec2`.
+4. **EC2 instance** — Ubuntu 22.04 LTS, t2.micro, 8 GB gp3, attach `sg-laravel-ec2` and the key pair.
+5. **Elastic IP** — allocate, **associate** to the instance (free only while attached).
+6. **RDS instance** — MySQL 8.0, free-tier template, `db.t3.micro`, 20 GB gp2, `sg-laravel-rds`, public access **No**, initial DB `next_laravel`.
+7. **Budget alert** — Billing → Budgets → $1/mo budget at 80%.
+
+### One-time server bootstrap
+
+SSH in and run the bootstrap script:
+
+```bash
+ssh -i ~/.ssh/laravel-next-ec2.pem ubuntu@<elastic-ip>
+
+# Pull bootstrap from the active branch (development until the first deploy on main)
+curl -fsSL https://raw.githubusercontent.com/adevenuto/laravel_next/development/deploy/bootstrap.sh \
+  | REPO_BRANCH=development bash
+```
+
+This installs nginx, PHP 8.3-FPM, Node 20, Composer, pm2, ufw; clones the repo to `/var/www/laravel_next`; configures the nginx vhost; enables systemd units.
+
+### One-time backend + first-build
+
+```bash
+# Configure backend env
+sudo cp /var/www/laravel_next/deploy/.env.production.example /var/www/laravel_next/backend/.env
+sudo nano /var/www/laravel_next/backend/.env   # fill DB_HOST, DB_PASSWORD, APP_URL, CORS_ALLOWED_ORIGINS, SANCTUM_STATEFUL_DOMAINS
+
+# Backend
+cd /var/www/laravel_next/backend
+sudo -u www-data composer install --no-dev --optimize-autoloader
+sudo -u www-data php artisan key:generate
+sudo -u www-data php artisan migrate --force
+sudo chown -R www-data:www-data storage bootstrap/cache
+sudo chmod -R 775 storage bootstrap/cache
+
+# Client (one-time build; CI takes over after this)
+cd /var/www/laravel_next/client
+sudo -u www-data npm ci
+sudo -u www-data NEXT_PUBLIC_API_URL=http://<elastic-ip> npm run build
+sudo -u www-data mkdir -p .next/standalone/.next
+sudo -u www-data cp -R .next/static .next/standalone/.next/static
+sudo -u www-data cp -R public .next/standalone/public
+sudo -u www-data pm2 start .next/standalone/server.js \
+  --name laravel_next_client --cwd /var/www/laravel_next/client/.next/standalone
+sudo -u www-data pm2 save
+```
+
+Smoke test from your laptop:
+
+```bash
+curl -sS http://<elastic-ip>/                                 # Next.js HTML
+curl -sS -o /dev/null -w '%{http_code}\n' http://<elastic-ip>/api/user   # 401
+```
 
 ### GitHub repository secrets
 
-In repo → Settings → Secrets and variables → Actions:
+Repo → Settings → Secrets and variables → Actions:
 
-| Secret                   | Source                                              |
-| ------------------------ | --------------------------------------------------- |
-| `AZURE_TENANT_ID`        | Azure AD tenant of the app registration             |
-| `AZURE_CLIENT_ID`        | Client ID of the app registration                   |
-| `AZURE_SUBSCRIPTION_ID`  | Subscription holding the resource group             |
-| `AZURE_BACKEND_APP_NAME` | App Service name for Laravel                        |
-| `AZURE_CLIENT_APP_NAME`  | App Service name for Next.js                        |
-| `NEXT_PUBLIC_API_URL`    | `https://api.yourdomain.com`                        |
-
-DB credentials, `APP_KEY`, and `CORS_ALLOWED_ORIGINS` live as **App Settings** on the backend App Service — not as GitHub secrets.
-
-### One-time backend bootstrap (after first deploy)
-
-Open the backend App Service → SSH (or `az webapp ssh -g <rg> -n <app>`):
-
-```bash
-cd /home/site/wwwroot
-cp .env.example .env
-php artisan key:generate
-# DB_*, APP_URL, CORS_ALLOWED_ORIGINS come from App Settings (preferred)
-php artisan migrate --force
-```
+| Secret                  | Value                                                       |
+| ----------------------- | ----------------------------------------------------------- |
+| `EC2_HOST`              | Elastic IP                                                  |
+| `EC2_USER`              | `ubuntu`                                                    |
+| `EC2_SSH_KEY`           | Full contents of `~/.ssh/laravel-next-ec2.pem`              |
+| `NEXT_PUBLIC_API_URL`   | `http://<elastic-ip>`                                       |
 
 ### Trigger a deploy
 
@@ -226,15 +290,17 @@ php artisan migrate --force
 git push origin main
 ```
 
-Azure-targeted workflows will live in `.github/workflows/` (to be authored as a follow-up).
+Both workflows are path-filtered, so only the relevant one fires.
 
 ## Pre-deployment checklist
 
-- [ ] Resource group + App Service Plan + two App Services + MySQL Flexible Server provisioned
-- [ ] Azure AD app registration created; federated credentials added for this repo's `main` branch
-- [ ] All six GitHub secrets set
-- [ ] DB credentials, `APP_KEY`, `CORS_ALLOWED_ORIGINS` set as App Settings on the backend App Service
-- [ ] First-run migrations executed (`php artisan migrate --force`)
-- [ ] Custom domains bound + TLS issued on both App Services
-- [ ] Backend App Service document root set to `backend/public`
-- [ ] Workflows authored in `.github/workflows/` and verified via a test push to `main`
+- [ ] EC2 t2.micro launched in `us-east-1` with Elastic IP attached
+- [ ] RDS db.t3.micro MySQL provisioned, `sg-laravel-rds` allows 3306 from `sg-laravel-ec2`, public access disabled
+- [ ] `~/.ssh/laravel-next-ec2.pem` saved locally with `chmod 400`
+- [ ] $1 AWS billing budget configured with email alert
+- [ ] `bootstrap.sh` run on EC2; nginx + PHP-FPM + pm2 startup all active
+- [ ] `backend/.env` filled in with RDS endpoint + password; `php artisan migrate --force` succeeded
+- [ ] First-build of Next.js running under pm2; `pm2 save` executed
+- [ ] Live URL smoke-tested: `/` returns Next.js HTML, `/api/user` returns 401, register → login → dashboard works
+- [ ] Four GitHub secrets set in repo
+- [ ] `development` merged to `main`; both workflows green; second push deploys without manual intervention

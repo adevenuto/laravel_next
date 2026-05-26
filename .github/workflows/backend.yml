@@ -1,0 +1,100 @@
+name: Backend CI + Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, zip, pdo, mysql, intl, bcmath, gd
+          coverage: none
+
+      - name: Get composer cache dir
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests
+        run: composer test
+
+  deploy:
+    name: Deploy to EC2
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-backend
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync backend/ to EC2
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: >-
+            -avzr --delete
+            --exclude='.env'
+            --exclude='vendor/'
+            --exclude='storage/logs/*'
+            --exclude='storage/framework/cache/*'
+            --exclude='storage/framework/sessions/*'
+            --exclude='storage/framework/views/*'
+            --exclude='.git/'
+          path: backend/
+          remote_path: /var/www/laravel_next/backend/
+          remote_host: ${{ secrets.EC2_HOST }}
+          remote_user: ${{ secrets.EC2_USER }}
+          remote_key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Post-deploy on EC2 (install, migrate, cache, reload)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /var/www/laravel_next/backend
+            sudo chown -R www-data:www-data .
+            sudo -u www-data composer install --no-dev --optimize-autoloader --no-interaction
+            sudo -u www-data php artisan migrate --force
+            sudo -u www-data php artisan config:cache
+            sudo -u www-data php artisan route:cache
+            sudo chmod -R 775 storage bootstrap/cache
+            sudo systemctl reload php8.3-fpm
