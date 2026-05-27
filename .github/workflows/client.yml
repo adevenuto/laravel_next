@@ -47,12 +47,26 @@ jobs:
       - name: Stage standalone output
         # Next.js standalone doesn't auto-copy `public/` or `.next/static/`.
         # Bundle them in alongside server.js so the EC2 receives a self-contained payload.
+        # rsync (vs cp -R) is explicit about preserving dotfiles like the inner .next/ dir.
         run: |
+          rm -rf deploy_out
           mkdir -p deploy_out
-          cp -R .next/standalone/. deploy_out/
-          mkdir -p deploy_out/.next
-          cp -R .next/static deploy_out/.next/static
-          cp -R public deploy_out/public
+          rsync -a .next/standalone/ deploy_out/
+          rsync -a .next/static deploy_out/.next/
+          rsync -a public deploy_out/
+
+      - name: Verify staging includes inner .next
+        # actions/upload-artifact@v4 strips dotfiles by default — if .next/ is
+        # missing here, the artifact would silently ship without the build output.
+        run: |
+          test -f deploy_out/server.js              || { echo "missing server.js"; exit 1; }
+          test -d deploy_out/.next                  || { echo "missing .next/"; exit 1; }
+          test -f deploy_out/.next/BUILD_ID         || { echo "missing .next/BUILD_ID"; exit 1; }
+          test -d deploy_out/.next/static           || { echo "missing .next/static/"; exit 1; }
+          test -d deploy_out/public                 || { echo "missing public/"; exit 1; }
+          echo "✓ Staging verified"
+          ls -la deploy_out/
+          ls -la deploy_out/.next/ | head -10
 
       - name: Upload artifact
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
@@ -61,6 +75,8 @@ jobs:
           name: client-standalone
           path: client/deploy_out/
           retention-days: 1
+          # CRITICAL: v4 strips dotfiles (including `.next/`) by default.
+          include-hidden-files: true
 
   deploy:
     name: Deploy to EC2
