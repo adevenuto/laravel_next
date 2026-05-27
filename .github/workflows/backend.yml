@@ -55,7 +55,7 @@ jobs:
 
   deploy:
     name: Deploy to EC2
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
     concurrency:
