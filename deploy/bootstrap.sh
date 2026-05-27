@@ -75,7 +75,19 @@ if [[ ! -d "${APP_DIR}/.git" ]]; then
 else
     echo "    (already a git repo; skipping clone)"
 fi
-sudo chown -R www-data:www-data "${APP_DIR}"
+
+# Ownership model:
+#   - backend/: ubuntu:www-data so the deploy user (ubuntu) can rsync/composer/artisan,
+#               and PHP-FPM (www-data group) can read everything.
+#   - storage/ + bootstrap/cache/: group-writable + setgid so PHP-FPM can persist
+#               logs/sessions/cached files, and new files inherit www-data group.
+#   - client/: ubuntu:ubuntu — Next.js + pm2 + npm run as ubuntu (has a real home dir).
+#               nginx (www-data) still reads via default world-readable perms.
+sudo chown -R ubuntu:www-data "${APP_DIR}"
+sudo chown -R ubuntu:ubuntu "${APP_DIR}/client" 2>/dev/null || true
+if [[ -d "${APP_DIR}/backend/storage" ]]; then
+    sudo chmod -R g+ws "${APP_DIR}/backend/storage" "${APP_DIR}/backend/bootstrap/cache"
+fi
 
 echo "==> Installing nginx vhost..."
 if [[ -f "${APP_DIR}/deploy/nginx.conf" ]]; then

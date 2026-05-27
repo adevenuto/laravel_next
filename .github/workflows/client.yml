@@ -99,8 +99,9 @@ jobs:
           script: |
             set -euo pipefail
             cd /var/www/laravel_next/client/.next/standalone
-            sudo chown -R www-data:www-data /var/www/laravel_next/client
+            # Client runs as ubuntu (pm2 has startup configured for ubuntu).
+            sudo chown -R ubuntu:ubuntu /var/www/laravel_next/client
             # First-time deploys won't have the process yet; start if absent, reload if present.
-            sudo -u www-data pm2 reload laravel_next_client --update-env 2>/dev/null \
-              || sudo -u www-data pm2 start server.js --name laravel_next_client --cwd /var/www/laravel_next/client/.next/standalone
-            sudo -u www-data pm2 save
+            pm2 reload laravel_next_client --update-env 2>/dev/null \
+              || pm2 start server.js --name laravel_next_client --cwd /var/www/laravel_next/client/.next/standalone
+            pm2 save

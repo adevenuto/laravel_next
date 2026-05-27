@@ -91,10 +91,12 @@ jobs:
           script: |
             set -euo pipefail
             cd /var/www/laravel_next/backend
-            sudo chown -R www-data:www-data .
-            sudo -u www-data composer install --no-dev --optimize-autoloader --no-interaction
-            sudo -u www-data php artisan migrate --force
-            sudo -u www-data php artisan config:cache
-            sudo -u www-data php artisan route:cache
-            sudo chmod -R 775 storage bootstrap/cache
+            # Reset ownership after rsync: ubuntu owns (so we can run composer/artisan),
+            # group is www-data (so PHP-FPM can read everything).
+            sudo chown -R ubuntu:www-data .
+            sudo chmod -R g+ws storage bootstrap/cache
+            composer install --no-dev --optimize-autoloader --no-interaction
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
             sudo systemctl reload php8.5-fpm
