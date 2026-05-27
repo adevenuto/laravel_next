@@ -20,15 +20,12 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/adevenuto/laravel_next.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 APP_DIR="${APP_DIR:-/var/www/laravel_next}"
-PHP_VERSION="8.3"
+# PHP 8.5 ships in Ubuntu 26.04 (Resolute) default repos — no PPA needed.
+# For older Ubuntu LTS (22.04/24.04), override with PHP_VERSION=8.3 and add the ondrej/php PPA.
+PHP_VERSION="${PHP_VERSION:-8.5}"
 NODE_MAJOR="20"
 
 echo "==> Updating apt indexes..."
-sudo apt-get update -y
-
-echo "==> Adding ondrej/php PPA (PHP ${PHP_VERSION} for Ubuntu 22.04)..."
-sudo apt-get install -y software-properties-common ca-certificates
-sudo add-apt-repository -y ppa:ondrej/php
 sudo apt-get update -y
 
 echo "==> Installing nginx, PHP ${PHP_VERSION}, mysql-client, git, build tools..."

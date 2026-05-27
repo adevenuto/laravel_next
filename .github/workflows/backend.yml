@@ -24,10 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup PHP 8.3
+      - name: Setup PHP 8.5
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.5'
           extensions: mbstring, xml, curl, zip, pdo, mysql, intl, bcmath, gd
           coverage: none
 
@@ -97,4 +97,4 @@ jobs:
             sudo -u www-data php artisan config:cache
             sudo -u www-data php artisan route:cache
             sudo chmod -R 775 storage bootstrap/cache
-            sudo systemctl reload php8.3-fpm
+            sudo systemctl reload php8.5-fpm
