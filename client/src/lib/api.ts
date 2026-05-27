@@ -68,11 +68,16 @@ async function apiFetch<T>(endpoint: string, options: ApiOptions = {}): Promise<
   return data as T;
 }
 
-export type User = { id: number; name: string; email: string };
+export type User = { id: number; first_name: string; last_name: string; email: string };
 
 export const api = {
-  register: (data: { name: string; email: string; password: string; password_confirmation: string }) =>
-    apiFetch<{ message: string }>("/api/register", { method: "POST", body: data }),
+  register: (data: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+  }) => apiFetch<{ message: string }>("/api/register", { method: "POST", body: data }),
 
   login: (data: { email: string; password: string }) =>
     apiFetch<{ user: User }>("/api/login", { method: "POST", body: data }),

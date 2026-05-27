@@ -19,7 +19,8 @@ class AuthController extends Controller
         // Note: no `unique:users` rule here — we look up manually so the
         // response shape is identical whether or not the email exists.
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255',
             'password' => 'required|string|min:8|confirmed',
         ]);
@@ -28,7 +29,8 @@ class AuthController extends Controller
 
         if (! $existing) {
             $user = User::create([
-                'name' => $validated['name'],
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
             ]);

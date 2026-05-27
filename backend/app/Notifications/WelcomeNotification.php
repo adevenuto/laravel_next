@@ -22,7 +22,7 @@ class WelcomeNotification extends Notification implements ShouldQueue
 
         return (new MailMessage)
             ->subject('Welcome to '.config('app.name'))
-            ->greeting('Welcome, '.$notifiable->name.'!')
+            ->greeting('Welcome, '.$notifiable->first_name.'!')
             ->line('Your account is ready to use.')
             ->action('Sign in', $frontend.'/login')
             ->line('If you did not create this account, please reply to this email.');

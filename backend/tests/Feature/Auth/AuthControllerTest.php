@@ -20,7 +20,8 @@ class AuthControllerTest extends TestCase
         Notification::fake();
 
         $response = $this->postJson('/api/register', [
-            'name' => 'Test User',
+            'first_name' => 'Test',
+            'last_name' => 'User',
             'email' => 'test@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -45,7 +46,8 @@ class AuthControllerTest extends TestCase
         $existing = User::factory()->create(['email' => 'existing@example.com']);
 
         $response = $this->postJson('/api/register', [
-            'name' => 'Another User',
+            'first_name' => 'Another',
+            'last_name' => 'User',
             'email' => 'existing@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -78,7 +80,7 @@ class AuthControllerTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonStructure(['user' => ['id', 'name', 'email']])
+            ->assertJsonStructure(['user' => ['id', 'first_name', 'last_name', 'email']])
             ->assertJsonMissing(['token']);
 
         $this->assertAuthenticated();

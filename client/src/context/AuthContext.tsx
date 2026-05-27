@@ -7,7 +7,13 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, password_confirmation: string) => Promise<void>;
+  register: (
+    first_name: string,
+    last_name: string,
+    email: string,
+    password: string,
+    password_confirmation: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -35,8 +41,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Register no longer auto-logs in — the user must visit /login afterwards.
   // This keeps the response identical whether or not the email is already registered.
   const register = useCallback(
-    async (name: string, email: string, password: string, password_confirmation: string) => {
-      await api.register({ name, email, password, password_confirmation });
+    async (
+      first_name: string,
+      last_name: string,
+      email: string,
+      password: string,
+      password_confirmation: string
+    ) => {
+      await api.register({ first_name, last_name, email, password, password_confirmation });
     },
     []
   );

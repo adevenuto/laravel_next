@@ -22,7 +22,7 @@ class DuplicateRegistrationNotification extends Notification implements ShouldQu
 
         return (new MailMessage)
             ->subject('Someone tried to sign up with your email')
-            ->greeting('Hi '.$notifiable->name.',')
+            ->greeting('Hi '.$notifiable->first_name.',')
             ->line('Someone just tried to create a new account using your email address.')
             ->line('No new account was created — you already have one with us.')
             ->line("If that was you and you can't remember your password, you can reset it now.")
