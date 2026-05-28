@@ -27,7 +27,8 @@ This project uses **Laravel Sanctum in SPA mode**: the Next.js client authentica
 | ------- | --------------------------------------------------------------------- | --------------------------------------------- |
 | Client  | `client/src/lib/api.ts`                                               | Cookie-aware fetch; CSRF helper               |
 | Client  | `client/src/context/AuthContext.tsx`                                  | Hydrates `user` from `/api/user` on mount     |
-| Client  | `client/src/components/ProtectedRoute.tsx`                            | Used by `(app)/layout.tsx`; redirects if !auth |
+| Client  | `client/src/components/ProtectedRoute.tsx`                            | Used by `(app)/layout.tsx`; redirects to /login if !auth |
+| Client  | `client/src/components/GuestRoute.tsx`                                | Used by `(auth)/layout.tsx`; redirects to /dashboard if authed |
 | Client  | `client/src/components/Header.tsx`                                    | Adapts CTAs by `user` + `pathname`            |
 | Client  | `client/src/components/MainLayout.tsx`                                | Shared shell: Header + main + Footer          |
 | Client  | `client/src/components/Footer.tsx`                                    | Footer rendered inside `MainLayout`           |
@@ -233,7 +234,7 @@ client/src/app/
 │   ├── layout.tsx          ← MainLayout
 │   └── page.tsx            → /
 ├── (auth)/
-│   ├── layout.tsx          ← MainLayout + centered flex wrapper
+│   ├── layout.tsx          ← <GuestRoute><MainLayout + centered flex wrapper>
 │   ├── login/page.tsx              → /login
 │   ├── signup/page.tsx             → /signup
 │   ├── forgot-password/page.tsx    → /forgot-password
@@ -245,11 +246,11 @@ client/src/app/
 
 Parens don't affect URLs — they're grouping for layout inheritance.
 
-| Group     | Layout wraps in                  | Auth required |
-| --------- | -------------------------------- | ------------- |
-| `(public)`| `MainLayout`                     | No            |
-| `(auth)`  | `MainLayout` + centered flex     | No            |
-| `(app)`   | `ProtectedRoute` → `MainLayout`  | **Yes**       |
+| Group     | Layout wraps in                          | Auth state                                      |
+| --------- | ---------------------------------------- | ----------------------------------------------- |
+| `(public)`| `MainLayout`                             | Either                                          |
+| `(auth)`  | `GuestRoute` → `MainLayout` + centered   | **Guest only** — authed users → `/dashboard`    |
+| `(app)`   | `ProtectedRoute` → `MainLayout`          | **Authed only** — guests → `/login`             |
 
 **Header is adaptive** (reads `useAuth().user` + `usePathname()`):
 
