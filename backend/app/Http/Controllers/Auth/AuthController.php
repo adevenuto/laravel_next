@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Notifications\DuplicateRegistrationNotification;
 use App\Notifications\WelcomeNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,35 +15,27 @@ class AuthController extends Controller
 {
     public function register(Request $request): JsonResponse
     {
-        // Note: no `unique:users` rule here — we look up manually so the
-        // response shape is identical whether or not the email exists.
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $existing = User::where('email', $validated['email'])->first();
+        $user = User::create([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+        ]);
+        $user->notify(new WelcomeNotification);
 
-        if (! $existing) {
-            $user = User::create([
-                'first_name' => $validated['first_name'],
-                'last_name' => $validated['last_name'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-            ]);
-            $user->notify(new WelcomeNotification);
-        } else {
-            // Spend a bcrypt round to keep timing uniform with the create path.
-            Hash::make($validated['password']);
-            $existing->notify(new DuplicateRegistrationNotification);
+        Auth::login($user);
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
         }
 
-        // Same response either way — no enumeration leak.
-        return response()->json([
-            'message' => 'Your account is ready. Please sign in.',
-        ], 200);
+        return response()->json(['user' => $user]);
     }
 
     public function login(Request $request): JsonResponse

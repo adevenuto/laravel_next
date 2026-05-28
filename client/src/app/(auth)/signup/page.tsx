@@ -26,7 +26,7 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await register(firstName, lastName, email, password, passwordConfirmation);
-      router.push("/login?registered=1");
+      router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {

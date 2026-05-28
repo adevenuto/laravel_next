@@ -3,7 +3,6 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
-use App\Notifications\DuplicateRegistrationNotification;
 use App\Notifications\WelcomeNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -15,7 +14,7 @@ class AuthControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_register_creates_user_sends_welcome_and_returns_generic_message(): void
+    public function test_register_creates_user_sends_welcome_and_logs_in(): void
     {
         Notification::fake();
 
@@ -28,22 +27,21 @@ class AuthControllerTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonStructure(['message'])
-            ->assertJsonMissing(['user', 'token']);
+            ->assertJsonStructure(['user' => ['id', 'first_name', 'last_name', 'email']])
+            ->assertJsonMissing(['token']);
 
         $this->assertDatabaseHas('users', ['email' => 'test@example.com']);
-        $this->assertGuest();
+        $this->assertAuthenticated();
 
         $user = User::where('email', 'test@example.com')->first();
         Notification::assertSentTo($user, WelcomeNotification::class);
-        Notification::assertNotSentTo($user, DuplicateRegistrationNotification::class);
     }
 
-    public function test_register_notifies_existing_user_and_returns_same_response(): void
+    public function test_register_rejects_duplicate_email_with_422(): void
     {
         Notification::fake();
 
-        $existing = User::factory()->create(['email' => 'existing@example.com']);
+        User::factory()->create(['email' => 'existing@example.com']);
 
         $response = $this->postJson('/api/register', [
             'first_name' => 'Another',
@@ -53,18 +51,12 @@ class AuthControllerTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        // Same shape as a successful registration — no enumeration leak.
-        $response->assertOk()
-            ->assertJsonStructure(['message'])
-            ->assertJsonMissing(['user', 'token']);
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
 
         // No duplicate user is created.
         $this->assertEquals(1, User::where('email', 'existing@example.com')->count());
-
-        // The existing user gets a "someone tried to register" notice,
-        // and crucially NOT a Welcome (which would leak that they're new).
-        Notification::assertSentTo($existing, DuplicateRegistrationNotification::class);
-        Notification::assertNotSentTo($existing, WelcomeNotification::class);
+        $this->assertGuest();
     }
 
     public function test_user_can_login(): void

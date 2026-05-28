@@ -77,7 +77,7 @@ export const api = {
     email: string;
     password: string;
     password_confirmation: string;
-  }) => apiFetch<{ message: string }>("/api/register", { method: "POST", body: data }),
+  }) => apiFetch<{ user: User }>("/api/register", { method: "POST", body: data }),
 
   login: (data: { email: string; password: string }) =>
     apiFetch<{ user: User }>("/api/login", { method: "POST", body: data }),

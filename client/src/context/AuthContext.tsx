@@ -38,8 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(user);
   }, []);
 
-  // Register no longer auto-logs in — the user must visit /login afterwards.
-  // This keeps the response identical whether or not the email is already registered.
+  // Register auto-logs the user in. The session cookie is set server-side via
+  // Auth::login + session regenerate; we just seed the user state from the response.
   const register = useCallback(
     async (
       first_name: string,
@@ -48,7 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password: string,
       password_confirmation: string
     ) => {
-      await api.register({ first_name, last_name, email, password, password_confirmation });
+      const { user } = await api.register({ first_name, last_name, email, password, password_confirmation });
+      setUser(user);
     },
     []
   );

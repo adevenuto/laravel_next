@@ -37,7 +37,7 @@ This project uses **Laravel Sanctum in SPA mode**: the Next.js client authentica
 | Backend | `backend/config/sanctum.php`                                          | Expiration + stateful domains                 |
 | Backend | `backend/routes/api.php`                                              | `throttle:5,1` on auth + `auth:sanctum` group |
 | Backend | `backend/app/Http/Controllers/Auth/*.php`                             | Auth + password-reset controllers             |
-| Backend | `backend/app/Notifications/*Notification.php`                         | Welcome + duplicate-signup mailers            |
+| Backend | `backend/app/Notifications/WelcomeNotification.php`                   | Welcome email on real signup                  |
 | Backend | `backend/app/Providers/AppServiceProvider.php`                        | Custom `ResetPassword` URL → frontend         |
 
 ### Wire-level cookies & headers
@@ -65,23 +65,22 @@ Browser              Next.js (AuthContext)               Laravel
    │                       │ POST /api/register                 │
    │                       │ X-XSRF-TOKEN: <cookie value>       │
    │                       ├───────────────────────────────────►│
-   │                       │                                    │ validate (no unique:users)
-   │                       │                                    │ existing = User::first(...)
-   │                       │                                    │ if !existing:
+   │                       │                                    │ validate (incl. unique:users,email)
+   │                       │                                    │ on success:
    │                       │                                    │   User::create() + WelcomeNotification
-   │                       │                                    │ else:
-   │                       │                                    │   Hash::make()  ← timing parity
-   │                       │                                    │   DuplicateRegistrationNotification
-   │                       │ 200 {message}  ◄── identical body  │
+   │                       │                                    │   Auth::login() + session regenerate
+   │                       │ 200 {user}   ◄── on success         │
+   │                       │ 422 {errors.email} ◄── on duplicate │
    │                       │◄───────────────────────────────────┤
-   │ router.push('/login?registered=1')                         │
+   │ setUser(user); router.push('/dashboard')   ◄── on success   │
    │◄──────────────────────┤
 ```
 
-- **No enumeration**: response is identical whether the email is new or taken.
-- **No auto-login**: client redirects to `/login`, which shows a success banner via `?registered=1`.
-- **Side effects** (invisible to requester): new user → `WelcomeNotification`; existing user → `DuplicateRegistrationNotification` with a reset-password CTA.
-- Dev: `MAIL_MAILER=log` writes both to `backend/storage/logs/laravel.log`.
+- **Auto-login**: a successful register session-regenerates and returns the user object; the client `setUser` + redirects straight to `/dashboard` (no `/login` bounce).
+- **Duplicate email** is revealed via 422 with `errors.email = "The email has already been taken."` — the form surfaces this in its existing error slot.
+- **Side effect**: new user gets a `WelcomeNotification` mail.
+- **Enumeration trade-off**: anti-enumeration mitigation was dropped in favor of standard UX. Rate limiting (`throttle:5,1`, 5/min/IP) is the remaining brute-force protection.
+- Dev: `MAIL_MAILER=log` writes the welcome mail to `backend/storage/logs/laravel.log`.
 
 ---
 
@@ -274,9 +273,8 @@ Mobile (`< md`) collapses everything into a hamburger that opens a right-side `S
 | Token never expires      | `SANCTUM_EXPIRATION=10080` for Bearer; SPA follows `SESSION_LIFETIME`                    | `config/sanctum.php`, `.env`                     |
 | Login brute-force        | `throttle:5,1` (5 req/min/IP) on all public auth routes                                  | `routes/api.php`                                 |
 | Login enumeration        | Generic 422 + `Hash::make()` on missing-user path                                         | `AuthController::login`                          |
-| Register enumeration     | `unique:users` removed; manual lookup; identical 200 + matched bcrypt cost on both paths | `AuthController::register`                       |
+| Register enumeration     | Deliberately revealed via 422 on duplicate email; rate-limited at 5/min/IP via `throttle:5,1` | `AuthController::register` + `routes/api.php`    |
 | Password-reset enumeration | Always 200 with the same message                                                          | `PasswordResetController::sendResetLink`         |
-| Account-hijack via dup signup | Existing user gets a `DuplicateRegistrationNotification` mail                          | `AuthController::register` + `Notifications/`    |
 | New-account confirmation | New user gets a `WelcomeNotification` (paper trail for legitimate signups)               | `AuthController::register` + `Notifications/`    |
 | CSRF                     | `statefulApi()` requires `X-XSRF-TOKEN` on mutations from stateful origins                | `bootstrap/app.php`                              |
 
