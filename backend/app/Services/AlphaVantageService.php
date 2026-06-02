@@ -15,7 +15,7 @@ class AlphaVantageService
         $normalized = strtolower(trim($keywords));
 
         return Cache::remember(
-            "alphavantage:search:{$normalized}",
+            "alphavantage:search:us:{$normalized}",
             self::CACHE_TTL_SECONDS,
             fn () => $this->fetchSearch($normalized),
         );
@@ -50,6 +50,11 @@ class AlphaVantageService
             return [];
         }
 
+        $usMatches = array_values(array_filter(
+            $data['bestMatches'],
+            fn (array $match) => ($match['4. region'] ?? null) === 'United States',
+        ));
+
         return array_map(fn (array $match) => [
             'symbol' => $match['1. symbol'] ?? '',
             'name' => $match['2. name'] ?? '',
@@ -57,6 +62,6 @@ class AlphaVantageService
             'region' => $match['4. region'] ?? '',
             'currency' => $match['8. currency'] ?? '',
             'matchScore' => $match['9. matchScore'] ?? '',
-        ], $data['bestMatches']);
+        ], $usMatches);
     }
 }

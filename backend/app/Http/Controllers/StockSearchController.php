@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\AlphaVantageService;
+use App\Services\SecCompanyTickerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
 class StockSearchController extends Controller
 {
-    public function __construct(private AlphaVantageService $alphaVantage)
+    public function __construct(private SecCompanyTickerService $tickers)
     {
     }
 
@@ -23,7 +23,7 @@ class StockSearchController extends Controller
         }
 
         return response()->json([
-            'results' => $this->alphaVantage->search($term),
+            'results' => $this->tickers->search($term),
         ]);
     }
 }
