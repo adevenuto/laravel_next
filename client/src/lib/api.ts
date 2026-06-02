@@ -3,6 +3,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 type ApiOptions = {
   method?: string;
   body?: Record<string, unknown>;
+  signal?: AbortSignal;
 };
 
 function getCookie(name: string): string | null {
@@ -23,7 +24,7 @@ async function ensureCsrfCookie(): Promise<void> {
 }
 
 async function apiFetch<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-  const { method = "GET", body } = options;
+  const { method = "GET", body, signal } = options;
   const isMutation = method !== "GET" && method !== "HEAD";
 
   if (isMutation) {
@@ -47,6 +48,7 @@ async function apiFetch<T>(endpoint: string, options: ApiOptions = {}): Promise<
     headers,
     body: body ? JSON.stringify(body) : undefined,
     credentials: "include",
+    signal,
   });
 
   if (res.status === 204) {
@@ -69,6 +71,15 @@ async function apiFetch<T>(endpoint: string, options: ApiOptions = {}): Promise<
 }
 
 export type User = { id: number; first_name: string; last_name: string; email: string };
+
+export type StockMatch = {
+  symbol: string;
+  name: string;
+  type: string;
+  region: string;
+  currency: string;
+  matchScore: string;
+};
 
 export const api = {
   register: (data: {
@@ -95,6 +106,9 @@ export const api = {
   }) => apiFetch<{ message: string }>("/api/password-reset/confirm", { method: "POST", body: data }),
 
   getUser: () => apiFetch<User>("/api/user"),
+
+  searchStocks: (term: string, signal?: AbortSignal) =>
+    apiFetch<{ results: StockMatch[] }>(`/api/search/${encodeURIComponent(term)}`, { signal }),
 
   // Force re-fetch the CSRF cookie (e.g. on logout when session is invalidated).
   resetCsrf: () => {

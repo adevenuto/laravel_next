@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'alphavantage' => [
+        'key' => env('ALPHA_VANTAGE_API_KEY'),
+        'base_url' => env('ALPHA_VANTAGE_BASE_URL', 'https://www.alphavantage.co/query'),
+    ],
+
+    'sec' => [
+        'tickers_url' => env('SEC_TICKERS_URL', 'https://www.sec.gov/files/company_tickers.json'),
+        'user_agent' => env('SEC_USER_AGENT', 'NextLaravelStockApp anthonydevenuto@gmail.com'),
+    ],
+
 ];
