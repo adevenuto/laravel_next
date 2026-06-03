@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import {
   Combobox,
@@ -15,6 +16,7 @@ import { api, type StockMatch } from "@/lib/api";
 import { useDebounce } from "@/hooks/useDebounce";
 
 export function StockSearch() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<StockMatch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,8 +72,7 @@ export function StockSearch() {
 
   function handleSelect(match: StockMatch | null) {
     if (!match) return;
-    // eslint-disable-next-line no-console
-    console.log("[StockSearch] selected:", match.symbol);
+    router.push(`/stocks/${encodeURIComponent(match.symbol)}`);
   }
 
   function handleOpenChange(open: boolean) {
@@ -98,7 +99,7 @@ export function StockSearch() {
         <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <ComboboxInput
           placeholder="Search stocks by company name or ticker..."
-          className="pl-9 pr-9"
+          className="bg-background pl-9 pr-9"
           onFocus={() => {
             if (query.trim() !== "" && (results.length > 0 || hasSearched)) {
               setUserClosed(false);
