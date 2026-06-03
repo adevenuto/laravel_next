@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import {
   Combobox,
@@ -15,6 +16,7 @@ import { api, type StockMatch } from "@/lib/api";
 import { useDebounce } from "@/hooks/useDebounce";
 
 export function StockSearch() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<StockMatch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,8 +72,7 @@ export function StockSearch() {
 
   function handleSelect(match: StockMatch | null) {
     if (!match) return;
-    // eslint-disable-next-line no-console
-    console.log("[StockSearch] selected:", match.symbol);
+    router.push(`/stocks/${encodeURIComponent(match.symbol)}`);
   }
 
   function handleOpenChange(open: boolean) {

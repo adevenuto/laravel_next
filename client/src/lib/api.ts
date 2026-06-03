@@ -81,6 +81,39 @@ export type StockMatch = {
   matchScore: string;
 };
 
+export type StockOverview = {
+  symbol: string;
+  name: string;
+  description: string;
+  exchange: string;
+  currency: string;
+  country: string;
+  sector: string;
+  industry: string;
+  marketCap: string;
+  peRatio: string;
+  pegRatio: string;
+  eps: string;
+  dividendPerShare: string;
+  dividendYield: string;
+  bookValue: string;
+  fiftyTwoWeekHigh: string;
+  fiftyTwoWeekLow: string;
+};
+
+export type StockQuote = {
+  symbol: string;
+  open: string;
+  high: string;
+  low: string;
+  price: string;
+  volume: string;
+  latestTradingDay: string;
+  previousClose: string;
+  change: string;
+  changePercent: string;
+};
+
 export const api = {
   register: (data: {
     first_name: string;
@@ -109,6 +142,12 @@ export const api = {
 
   searchStocks: (term: string, signal?: AbortSignal) =>
     apiFetch<{ results: StockMatch[] }>(`/api/search/${encodeURIComponent(term)}`, { signal }),
+
+  getStockOverview: (symbol: string, signal?: AbortSignal) =>
+    apiFetch<StockOverview>(`/api/stocks/${encodeURIComponent(symbol)}/overview`, { signal }),
+
+  getStockQuote: (symbol: string, signal?: AbortSignal) =>
+    apiFetch<StockQuote>(`/api/stocks/${encodeURIComponent(symbol)}/quote`, { signal }),
 
   // Force re-fetch the CSRF cookie (e.g. on logout when session is invalidated).
   resetCsrf: () => {
