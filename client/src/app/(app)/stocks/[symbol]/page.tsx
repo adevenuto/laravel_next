@@ -1,8 +1,15 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { api, type StockOverview, type StockQuote } from "@/lib/api";
+import {
+  api,
+  type StockIncomeStatement,
+  type StockOverview,
+  type StockQuote,
+} from "@/lib/api";
 import { FiftyTwoWeekRange } from "@/components/FiftyTwoWeekRange";
+import { RevenueChart } from "@/components/RevenueChart";
+import { StockSearch } from "@/components/StockSearch";
 
 function formatLargeUsd(value: string): string {
   const num = parseFloat(value);
@@ -42,6 +49,7 @@ export default function StockShowPage({
 
   const [overview, setOverview] = useState<StockOverview | null>(null);
   const [quote, setQuote] = useState<StockQuote | null>(null);
+  const [income, setIncome] = useState<StockIncomeStatement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,8 +59,9 @@ export default function StockShowPage({
     setError(null);
     setOverview(null);
     setQuote(null);
+    setIncome(null);
 
-    // Sequence the two Alpha Vantage calls — AV's free tier enforces ~1 req/sec
+    // Sequence the Alpha Vantage calls — AV's free tier enforces ~1 req/sec
     // burst limit, so parallel fetches get one of them throttled (and the null
     // result isn't cached, masking the failure until refresh).
     (async () => {
@@ -76,6 +85,15 @@ export default function StockShowPage({
         // Quote failure (likely throttle) — the range bar just won't render.
       }
 
+      try {
+        const incomeData = await api.getStockIncomeStatement(ticker, controller.signal);
+        if (controller.signal.aborted) return;
+        setIncome(incomeData);
+      } catch (err) {
+        if (isAbortError(err)) return;
+        // Income failure — the chart just won't render.
+      }
+
       if (!controller.signal.aborted) setIsLoading(false);
     })();
 
@@ -83,8 +101,12 @@ export default function StockShowPage({
   }, [ticker]);
 
   return (
-    <div className="mx-auto w-full space-y-6 py-6 sm:w-3/4 xl:w-1/2">
-      <header>
+    <div className="mx-auto w-full sm:w-3/4 xl:w-1/2">
+      <div className="sticky top-16 z-30 -mx-4 px-4 py-3 sm:mx-0 sm:px-0">
+        <StockSearch />
+      </div>
+      <div className="space-y-6 py-6">
+        <header>
         <h1 className="text-3xl font-semibold tracking-tight">{ticker}</h1>
         {overview && (
           <p className="mt-1 text-muted-foreground">{overview.name}</p>
@@ -122,6 +144,14 @@ export default function StockShowPage({
             <Stat label="Div Yield" value={formatPercent(overview.dividendYield)} />
           </div>
 
+          
+
+          {income && income.quarterlyReports.length > 0 && (
+            <section>
+              <RevenueChart quarters={income.quarterlyReports} />
+            </section>
+          )}
+
           {overview.description && (
             <section>
               <h2 className="mb-2 text-sm font-medium">About</h2>
@@ -130,8 +160,10 @@ export default function StockShowPage({
               </p>
             </section>
           )}
+
         </>
       )}
+      </div>
     </div>
   );
 }

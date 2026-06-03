@@ -219,4 +219,68 @@ class AlphaVantageService
             'changePercent' => $quote['10. change percent'] ?? '',
         ];
     }
+
+    public function getIncomeStatement(string $symbol): ?array
+    {
+        $normalized = strtoupper(trim($symbol));
+        if ($normalized === '') {
+            return null;
+        }
+
+        return Cache::remember(
+            "alphavantage:income_statement:{$normalized}",
+            self::CACHE_TTL_SECONDS,
+            fn () => $this->fetchIncomeStatement($normalized),
+        );
+    }
+
+    private function fetchIncomeStatement(string $symbol): ?array
+    {
+        $this->throttle();
+        $response = Http::get(config('services.alphavantage.base_url'), [
+            'function' => 'INCOME_STATEMENT',
+            'symbol' => $symbol,
+            'apikey' => config('services.alphavantage.key'),
+        ]);
+
+        if ($response->failed()) {
+            Log::warning('Alpha Vantage INCOME_STATEMENT HTTP failure', [
+                'status' => $response->status(),
+                'symbol' => $symbol,
+            ]);
+            return null;
+        }
+
+        $data = $response->json();
+
+        if (! is_array($data) || empty($data)) {
+            return null;
+        }
+
+        if (isset($data['Note']) || isset($data['Information'])) {
+            Log::warning('Alpha Vantage INCOME_STATEMENT throttled', [
+                'message' => $data['Note'] ?? $data['Information'],
+                'symbol' => $symbol,
+            ]);
+            return null;
+        }
+
+        if (! isset($data['symbol']) || ! isset($data['quarterlyReports'])) {
+            return null;
+        }
+
+        $quarterlyReports = array_map(
+            fn (array $q) => [
+                'fiscalDateEnding' => $q['fiscalDateEnding'] ?? '',
+                'totalRevenue' => $q['totalRevenue'] ?? '',
+                'reportedCurrency' => $q['reportedCurrency'] ?? '',
+            ],
+            $data['quarterlyReports'] ?? [],
+        );
+
+        return [
+            'symbol' => $data['symbol'],
+            'quarterlyReports' => $quarterlyReports,
+        ];
+    }
 }

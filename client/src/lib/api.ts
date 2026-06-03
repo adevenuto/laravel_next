@@ -114,6 +114,17 @@ export type StockQuote = {
   changePercent: string;
 };
 
+export type QuarterlyRevenue = {
+  fiscalDateEnding: string;
+  totalRevenue: string;
+  reportedCurrency: string;
+};
+
+export type StockIncomeStatement = {
+  symbol: string;
+  quarterlyReports: QuarterlyRevenue[];
+};
+
 export const api = {
   register: (data: {
     first_name: string;
@@ -148,6 +159,12 @@ export const api = {
 
   getStockQuote: (symbol: string, signal?: AbortSignal) =>
     apiFetch<StockQuote>(`/api/stocks/${encodeURIComponent(symbol)}/quote`, { signal }),
+
+  getStockIncomeStatement: (symbol: string, signal?: AbortSignal) =>
+    apiFetch<StockIncomeStatement>(
+      `/api/stocks/${encodeURIComponent(symbol)}/income-statement`,
+      { signal },
+    ),
 
   // Force re-fetch the CSRF cookie (e.g. on logout when session is invalidated).
   resetCsrf: () => {

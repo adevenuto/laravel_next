@@ -99,7 +99,7 @@ export function StockSearch() {
         <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <ComboboxInput
           placeholder="Search stocks by company name or ticker..."
-          className="pl-9 pr-9"
+          className="bg-background pl-9 pr-9"
           onFocus={() => {
             if (query.trim() !== "" && (results.length > 0 || hasSearched)) {
               setUserClosed(false);

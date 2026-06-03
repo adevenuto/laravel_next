@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\StockIncomeStatementController;
 use App\Http\Controllers\StockOverviewController;
 use App\Http\Controllers\StockQuoteController;
 use App\Http\Controllers\StockSearchController;
@@ -22,4 +23,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/search/{term}', StockSearchController::class);
     Route::get('/stocks/{symbol}/overview', StockOverviewController::class);
     Route::get('/stocks/{symbol}/quote', StockQuoteController::class);
+    Route::get('/stocks/{symbol}/income-statement', StockIncomeStatementController::class);
 });
