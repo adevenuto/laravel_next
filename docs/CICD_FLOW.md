@@ -28,16 +28,15 @@ How the GitHub Actions pipeline ships code from `main` to the live EC2 box.
        │                 │
        │  GitHub Actions runner (Ubuntu)
        │                 │
-       │  - tests          - lint / type-check
-       │  - rsync to EC2   - build standalone bundle
-       │  - SSH post-deploy- rsync to EC2
-       │                   - SSH: pm2 reload
+       │  - tests          - lint / type-check / vitest
+       │  - rsync to EC2   - vite build (static dist/)
+       │  - SSH post-deploy- rsync dist/ to EC2
        ▼                 ▼
    EC2 t2.micro (one box, two app dirs):
-   ├─ /var/www/laravel_next/backend  ← PHP-FPM 8.5 serves /api, /sanctum
-   └─ /var/www/laravel_next/client   ← Next.js standalone via pm2 on :3000
+   ├─ /var/www/laravel_vue/backend  ← PHP-FPM 8.5 serves /api, /sanctum
+   └─ /var/www/laravel_vue/client   ← Vite-built static SPA served directly by nginx
                                          ↑
-                            nginx :80 reverse-proxies above
+                            nginx :80 fronts both
 ```
 
 ---
@@ -49,7 +48,7 @@ Two independent workflows live in `.github/workflows/`:
 | File | When it runs | What it does |
 |---|---|---|
 | `backend.yml` | Push or PR to `main` touching `backend/**`, or manual dispatch | Run PHPUnit → if push to main, rsync backend → SSH: composer install, migrate, cache, reload php-fpm |
-| `client.yml` | Push or PR to `main` touching `client/**`, or manual dispatch | Lint + type-check → build standalone bundle → if push to main, rsync to EC2 → pm2 reload |
+| `client.yml` | Push or PR to `main` touching `client/**`, or manual dispatch | Lint + type-check + Vitest → vite build → if push to main, rsync `dist/` to EC2 |
 
 Both use the **same four GitHub secrets** for SSH access:
 
@@ -58,7 +57,7 @@ Both use the **same four GitHub secrets** for SSH access:
 | `EC2_HOST` | EC2 Elastic IP |
 | `EC2_USER` | `ubuntu` |
 | `EC2_SSH_KEY` | Private SSH key contents |
-| `NEXT_PUBLIC_API_URL` | `http://<elastic-ip>` (baked into client bundle at build time) |
+| `VITE_API_URL` | `http://<elastic-ip>` (baked into client bundle at build time) |
 
 ---
 
@@ -118,23 +117,22 @@ Manual dispatch deploys to whichever branch you select in the UI (default: `main
 
 ### Client deploy (~1–2 min)
 
-1. **Lint + Build** on the runner:
+1. **Lint + Test + Build** on the runner:
    - `npm ci` (cached)
-   - `npm run lint` + `npm run type-check`
-   - `NEXT_PUBLIC_API_URL=<secret> npm run build` — produces `.next/standalone/`
-2. **Stage** — copies `public/` and `.next/static/` into `deploy_out/` (Next.js standalone doesn't auto-include them)
-3. **Upload artifact** — `deploy_out/` is shipped to GitHub Actions storage (1-day retention)
+   - `npm run lint` + `npm run type-check` + `npm run test` (Vitest)
+   - `VITE_API_URL=<secret> npm run build` — produces `client/dist/` (Vite SPA)
+2. **Verify `dist/`** — checks `index.html` and `assets/` exist before upload
+3. **Upload artifact** — `client/dist/` is shipped to GitHub Actions storage (1-day retention)
 4. **Deploy job**:
    - Downloads the artifact
-   - rsync to `/var/www/laravel_next/client/.next/standalone/` on EC2
-   - SSH: `sudo chown -R ubuntu:ubuntu /var/www/laravel_next/client`
-   - `pm2 reload laravel_next_client` (or `pm2 start` if the process doesn't exist yet) — graceful, no downtime
+   - rsync to `/var/www/laravel_vue/client/` on EC2 with `--delete` (evicts stale Vite-hashed chunks)
+   - No SSH step — nginx serves the new files immediately on the next request (Vite filenames are content-hashed, so cache invalidation is automatic)
 
 ---
 
 ## What about features that touch both?
 
-Common scenario: new Laravel model + migration + controller + route, paired with a new Next.js page and API call.
+Common scenario: new Laravel model + migration + controller + route, paired with a new Vue page and API call.
 
 **Both workflows fire in parallel.** They don't coordinate. Typical timeline:
 
@@ -144,8 +142,8 @@ t=0      Both runners pick up the job
 t=15s    Backend tests pass; rsync starts
 t=30s    Backend rsync done; SSH post-deploy runs
 t=45s    Backend deploy complete → new routes + migration live
-t=60s    Client lint + type-check done; build starts
-t=2:00   Client build done; rsync + pm2 reload
+t=60s    Client lint + type-check + tests done; vite build starts
+t=2:00   Client build done; rsync dist/
 t=2:15   Client deploy complete → new UI live
 ```
 
@@ -189,7 +187,7 @@ A push that modifies `docs/`, `deploy/`, `README.md`, `.editorconfig`, etc. **do
 Currently there's **no built-in rollback button**. If a deploy breaks production, options are:
 
 1. **Push a revert commit** to `main` — `git revert <bad-sha>`, push → CI redeploys the previous state. Cleanest, ~5 min recovery.
-2. **SSH in and roll back manually** — restore from git: `cd /var/www/laravel_next/backend && sudo -u ubuntu git checkout <prev-sha> -- .` then restart php-fpm. Faster but doesn't update what `main` looks like.
+2. **SSH in and roll back manually** — restore from git: `cd /var/www/laravel_vue/backend && sudo -u ubuntu git checkout <prev-sha> -- .` then restart php-fpm. Faster but doesn't update what `main` looks like.
 3. **Re-run a previous successful workflow** — Actions tab → old successful run → "Re-run all jobs". Deploys the artifact / sha of that run.
 
 ---
@@ -209,13 +207,14 @@ Currently there's **no built-in rollback button**. If a deploy breaks production
 
 | Symptom | Likely cause | First thing to check |
 |---|---|---|
-| rsync: `Permission denied (13)` / `Operation not permitted` | EC2 dir owned by wrong user | `ls -ld /var/www/laravel_next/backend` — should be `ubuntu:www-data` |
+| rsync: `Permission denied (13)` / `Operation not permitted` | EC2 dir owned by wrong user | `ls -ld /var/www/laravel_vue/backend` — should be `ubuntu:www-data` |
 | SSH: `invalid format` / `Permission denied (publickey)` | `EC2_SSH_KEY` secret missing trailing newline | Re-paste the key including the final blank line |
 | Workflow doesn't fire on push | Path filter didn't match | `git diff --name-only HEAD~1 HEAD` — confirm files match `backend/**` or `client/**` |
 | Workflow doesn't fire on new branch | `push` event needs the workflow file already on the target branch | Use `workflow_dispatch` for the first run after merging workflows to a new branch |
-| Backend deploy succeeds but `/api/*` returns 500 | `php artisan config:cache` cached old/wrong `.env` | SSH in: `cd /var/www/laravel_next/backend && sudo -u ubuntu php artisan config:clear && sudo -u ubuntu php artisan config:cache` |
-| Client deploy succeeds but page doesn't update | pm2 has stale module cache | SSH in: `pm2 restart laravel_next_client` (full restart, not reload) |
-| `JavaScript heap out of memory` | Build OOM on the runner (unlikely; rare on standard runners) | Set `NODE_OPTIONS=--max-old-space-size=4096` in the build step |
+| Backend deploy succeeds but `/api/*` returns 500 | `php artisan config:cache` cached old/wrong `.env` | SSH in: `cd /var/www/laravel_vue/backend && sudo -u ubuntu php artisan config:clear && sudo -u ubuntu php artisan config:cache` |
+| Client deploy succeeds but page doesn't update | Browser cache (Vite hashes filenames so this is rare) | Hard-refresh (Cmd-Shift-R); confirm nginx is reading from `/var/www/laravel_vue/client/` |
+| SPA refresh on `/dashboard` returns 404 | nginx missing the `try_files $uri $uri/ /index.html;` fallback in `location /` | Check `/etc/nginx/sites-available/laravel_vue` — needs SPA fallback |
+| `JavaScript heap out of memory` | Build OOM on the runner (rare on standard runners) | Set `NODE_OPTIONS=--max-old-space-size=4096` in the build step |
 
 ---
 
