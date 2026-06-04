@@ -1,6 +1,6 @@
 # Authentication & Token Flow
 
-This project uses **Laravel Sanctum in SPA mode**: the Next.js client authenticates via **HttpOnly session cookies + CSRF**, not Bearer tokens. Bearer tokens still work for non-SPA clients (tests, mobile, CLI) — `auth:sanctum` accepts both.
+This project uses **Laravel Sanctum in SPA mode**: the Vue 3 client authenticates via **HttpOnly session cookies + CSRF**, not Bearer tokens. Bearer tokens still work for non-SPA clients (tests, mobile, CLI) — `auth:sanctum` accepts both.
 
 ---
 
@@ -8,16 +8,17 @@ This project uses **Laravel Sanctum in SPA mode**: the Next.js client authentica
 
 ```
 ┌──────────────────────────────────┐         ┌────────────────────────────────────────┐
-│  Next.js client (port 3000)      │         │  Laravel API (port 8000)               │
+│  Vue 3 SPA (port 3000)           │         │  Laravel API (port 8000)               │
 │                                  │         │                                        │
-│  AuthContext ─► api.getUser()    │         │  routes/api.php                        │
-│   on mount                       │         │   ├─ throttle:5,1                      │
-│  api.ts ──► fetch w/ cookies +   │ cookies │   │    register / login                 │
-│   X-XSRF-TOKEN (mutations)       ├─────────┼─►   │    password-reset (+ confirm)     │
-│  /sanctum/csrf-cookie once       │         │   └─ auth:sanctum                      │
-│                                  │         │   EnsureFrontendRequestsAreStateful    │
-│  Route groups:                   │         │      → StartSession + ValidateCsrf     │
-│   (public) / (auth) / (app)      │         │   HasApiTokens for Bearer fallback     │
+│  main.ts ─► auth.fetchUser()     │         │  routes/api.php                        │
+│   before mount                   │         │   ├─ throttle:5,1                      │
+│  lib/api.ts ─► axios w/          │ cookies │   │    register / login                 │
+│   withCredentials +              ├─────────┼─►   │    password-reset (+ confirm)     │
+│   withXSRFToken                  │         │   └─ auth:sanctum                      │
+│  /sanctum/csrf-cookie once       │         │   EnsureFrontendRequestsAreStateful    │
+│                                  │         │      → StartSession + ValidateCsrf     │
+│  Router guards:                  │         │   HasApiTokens for Bearer fallback     │
+│   requiresAuth / guestOnly       │         │                                        │
 └──────────────────────────────────┘         └────────────────────────────────────────┘
 ```
 
@@ -25,14 +26,13 @@ This project uses **Laravel Sanctum in SPA mode**: the Next.js client authentica
 
 | Layer   | File                                                                  | Role                                          |
 | ------- | --------------------------------------------------------------------- | --------------------------------------------- |
-| Client  | `client/src/lib/api.ts`                                               | Cookie-aware fetch; CSRF helper               |
-| Client  | `client/src/context/AuthContext.tsx`                                  | Hydrates `user` from `/api/user` on mount     |
-| Client  | `client/src/components/ProtectedRoute.tsx`                            | Used by `(app)/layout.tsx`; redirects to /login if !auth |
-| Client  | `client/src/components/GuestRoute.tsx`                                | Used by `(auth)/layout.tsx`; redirects to /dashboard if authed |
-| Client  | `client/src/components/Header.tsx`                                    | Adapts CTAs by `user` + `pathname`            |
-| Client  | `client/src/components/MainLayout.tsx`                                | Shared shell: Header + main + Footer          |
-| Client  | `client/src/components/Footer.tsx`                                    | Footer rendered inside `MainLayout`           |
-| Client  | `client/src/app/(public|auth|app)/layout.tsx`                         | Per-group chrome (see §8)                     |
+| Client  | `client/src/lib/api.ts`                                               | Axios instance; `ensureCsrfCookie()`; 401 interceptor |
+| Client  | `client/src/stores/auth.ts`                                           | Pinia store: `login`, `register`, `logout`, `fetchUser`, `forgotPassword`, `resetPassword` |
+| Client  | `client/src/composables/useApi.ts`                                    | Generic `{ data, error, loading, execute }` wrapper |
+| Client  | `client/src/router/index.ts`                                          | Routes + `beforeEach` guard (`requiresAuth` / `guestOnly`) |
+| Client  | `client/src/main.ts`                                                  | Hydrates `auth.fetchUser()` before installing router and mounting |
+| Client  | `client/src/layouts/{Auth,App}Layout.vue`                             | Guest vs authed chrome (chosen by `route.meta.layout`) |
+| Client  | `client/src/components/AppHeader.vue`                                 | Header with user name + logout                |
 | Backend | `backend/bootstrap/app.php`                                           | `statefulApi()` enables SPA mode              |
 | Backend | `backend/config/cors.php`                                             | `supports_credentials: true`; env origins     |
 | Backend | `backend/config/sanctum.php`                                          | Expiration + stateful domains                 |
@@ -46,8 +46,8 @@ This project uses **Laravel Sanctum in SPA mode**: the Next.js client authentica
 | Thing                   | Set by               | Read by                 | Notes                                                |
 | ----------------------- | -------------------- | ----------------------- | ---------------------------------------------------- |
 | `laravel_session`       | Laravel              | Laravel                 | **HttpOnly** — invisible to JS                       |
-| `XSRF-TOKEN` cookie     | Laravel              | JS (`document.cookie`)  | Not HttpOnly — JS echoes it as a header              |
-| `X-XSRF-TOKEN` header   | `api.ts` (mutations) | Laravel                 | Must match the cookie                                |
+| `XSRF-TOKEN` cookie     | Laravel              | Axios (`withXSRFToken`) | Not HttpOnly — Axios echoes it as a header           |
+| `X-XSRF-TOKEN` header   | Axios (mutations)    | Laravel                 | Must match the cookie                                |
 | `Authorization: Bearer` | Bearer clients only  | Laravel                 | Sanctum fallback when no session                     |
 
 ---
@@ -55,7 +55,7 @@ This project uses **Laravel Sanctum in SPA mode**: the Next.js client authentica
 ## 1. Register flow
 
 ```
-Browser              Next.js (AuthContext)               Laravel
+Browser              Vue (auth store)                    Laravel
    │                       │                                    │
    │ submit form           │                                    │
    ├──────────────────────►│                                    │
@@ -73,12 +73,12 @@ Browser              Next.js (AuthContext)               Laravel
    │                       │ 200 {user}   ◄── on success         │
    │                       │ 422 {errors.email} ◄── on duplicate │
    │                       │◄───────────────────────────────────┤
-   │ setUser(user); router.push('/dashboard')   ◄── on success   │
+   │ user.value = data; router.push('/dashboard')  ◄── on success│
    │◄──────────────────────┤
 ```
 
-- **Auto-login**: a successful register session-regenerates and returns the user object; the client `setUser` + redirects straight to `/dashboard` (no `/login` bounce).
-- **Duplicate email** is revealed via 422 with `errors.email = "The email has already been taken."` — the form surfaces this in its existing error slot.
+- **Auto-login**: a successful register session-regenerates and returns the user object; the store sets `user.value` and the page redirects straight to `/dashboard` (no `/login` bounce).
+- **Duplicate email** is revealed via 422 with `errors.email = "The email has already been taken."` — `useApi` surfaces this in the form's error slot.
 - **Side effect**: new user gets a `WelcomeNotification` mail.
 - **Enumeration trade-off**: anti-enumeration mitigation was dropped in favor of standard UX. Rate limiting (`throttle:5,1`, 5/min/IP) is the remaining brute-force protection.
 - Dev: `MAIL_MAILER=log` writes the welcome mail to `backend/storage/logs/laravel.log`.
@@ -88,7 +88,7 @@ Browser              Next.js (AuthContext)               Laravel
 ## 2. Login flow
 
 ```
-Browser           Next.js                          Laravel
+Browser           Vue                              Laravel
    │                  │                                    │
    │ email + password │                                    │
    ├─────────────────►│                                    │
@@ -115,13 +115,14 @@ Browser           Next.js                          Laravel
 The pattern for every protected route, present or future:
 
 ```
-Browser         Next.js (api.ts)                  Laravel
+Browser         Vue (lib/api.ts)                  Laravel
    │                  │                                    │
    ├─────────────────►│                                    │
-   │                  │ fetch(`${API}/api/things/42`, {     │
-   │                  │   credentials: 'include',           │
-   │                  │   /* X-XSRF-TOKEN on mutations */   │
-   │                  │ })                                  │
+   │                  │ api.get(`/api/things/42`)          │
+   │                  │   axios.create({                   │
+   │                  │     withCredentials: true,         │
+   │                  │     withXSRFToken: true,           │
+   │                  │   })                               │
    │                  ├───────────────────────────────────►│
    │                  │                                    │ ① CORS preflight (OPTIONS) → 204
    │                  │                                    │ ② HandleCors echoes Origin
@@ -135,16 +136,17 @@ Browser         Next.js (api.ts)                  Laravel
    │                  │◄───────────────────────────────────┤
 ```
 
-- CSRF is enforced on **mutations only** (POST/PUT/PATCH/DELETE).
-- `credentials: 'include'` is required cross-origin and pairs with `supports_credentials: true`.
+- CSRF is enforced on **mutations only** (POST/PUT/PATCH/DELETE). Axios `withXSRFToken: true` reads the cookie and sets `X-XSRF-TOKEN` automatically — no manual handling needed.
+- `withCredentials: true` is required cross-origin and pairs with `supports_credentials: true` on the server.
 - `auth:sanctum` is dual-mode: cookie first, Bearer fallback — controllers don't need to know which.
+- In dev, the Vite proxy forwards `/api` + `/sanctum` → `http://localhost:8000`, so the browser sees same-origin requests and the cookie handling is trivial.
 
 ---
 
 ## 4. Logout flow
 
 ```
-Browser        Next.js                           Laravel
+Browser        Vue                               Laravel
    │              │                                    │
    ├─────────────►│ POST /api/logout + cookies + CSRF  │
    │              ├───────────────────────────────────►│
@@ -154,12 +156,12 @@ Browser        Next.js                           Laravel
    │              │                                    │ $token?->delete()  ← Bearer revoke
    │              │ 200 {message}                      │
    │              │◄───────────────────────────────────┤
-   │              │ setUser(null)
+   │              │ auth.clear(); resetCsrf()
    │ /login       │
    │◄─────────────┤
 ```
 
-Ends the SPA session AND revokes the personal access token (if the request used one). Other devices stay logged in.
+Ends the SPA session AND revokes the personal access token (if the request used one). Other devices stay logged in. The store calls `resetCsrf()` so the next mutation re-fetches a fresh CSRF cookie.
 
 ---
 
@@ -177,19 +179,28 @@ In dev the link lands in `backend/storage/logs/laravel.log`.
 
 **Confirm with new password** — `POST /api/password-reset/confirm` accepts `{email, token, password, password_confirmation}`, calls `Password::reset()` (validates single-use/time-limited token, updates hash, rotates `remember_token`). 200 on success, 422 on invalid/expired token.
 
-The frontend page (`client/src/app/(auth)/reset-password/page.tsx`) reads `token`+`email` from the query, posts the new password, and redirects to `/login?reset=1` on success.
+The frontend page (`client/src/pages/ResetPasswordPage.vue`) reads `token`+`email` from the route query via `useRoute()`, posts the new password, and redirects to `/login?reset=1` on success.
 
 ---
 
 ## 6. Page reload / session restoration
 
-No localStorage. On mount, `AuthProvider` calls `GET /api/user`; the browser attaches the session cookie automatically.
+No localStorage. In `main.ts`, before installing the router and mounting:
 
-- 200 → `setUser(user)`
-- 401 → `setUser(null)`
-- `ProtectedRoute` (used only by `(app)` pages) waits for hydration, then redirects to `/login` if no user.
+```ts
+const auth = useAuthStore()
+await auth.fetchUser().catch(() => {})  // 401 = anonymous, fine
+app.use(router)
+await router.isReady()
+app.mount('#app')
+```
 
-Trade-off: HttpOnly token means JS can't exfiltrate it, but the frontend and API must share a parent domain in production for cookies to ride along.
+- 200 → `user.value = data`
+- 401 → `user.value` stays null
+
+This order matters: the router's `beforeEach` guard reads `auth.isAuthenticated`, so the store has to be hydrated before any navigation can resolve. Otherwise a refresh on `/dashboard` would briefly see "not authenticated" and bounce to `/login`.
+
+Trade-off: HttpOnly session cookie means JS can't exfiltrate it, but the frontend and API must share a parent domain in production for cookies to ride along.
 
 ---
 
@@ -211,58 +222,52 @@ Trade-off: HttpOnly token means JS can't exfiltrate it, but the frontend and API
 
 ### Client
 
-1. Add a method to `client/src/lib/api.ts`:
+1. Add an action to the relevant Pinia store, or call `api` directly:
    ```ts
-   listProjects: () => apiFetch<Project[]>("/api/projects"),
+   import { api } from '@/lib/api'
+   const { data } = await api.get<Project[]>('/api/projects')
    ```
-2. Call it — cookies attach automatically:
-   ```tsx
-   useEffect(() => { api.listProjects().then(setProjects); }, []);
+2. Wrap with `useApi` in the page/component if you want reactive loading/error:
+   ```ts
+   const { data: projects, error, loading, execute } = useApi(() => api.get<Project[]>('/api/projects').then(r => r.data))
+   onMounted(() => execute())
    ```
-3. Drop the page under `app/(app)/` — `(app)/layout.tsx` already wraps everything in `<ProtectedRoute><MainLayout>`.
+3. Add the route to `client/src/router/index.ts` with `meta: { requiresAuth: true, layout: 'app' }` — the global guard will gate it, and `AppLayout` provides the header + chrome.
 
-Mutations are handled by `api.ts`: it ensures `/sanctum/csrf-cookie` has been hit, reads `XSRF-TOKEN`, and sends `X-XSRF-TOKEN`.
+Mutations are handled automatically by `lib/api.ts`: Axios reads the `XSRF-TOKEN` cookie and sends `X-XSRF-TOKEN` on every POST/PUT/PATCH/DELETE.
 
 ---
 
-## 8. Frontend layout & route groups
+## 8. Frontend routing & layouts
 
+Vue Router 4 with two layouts chosen via `route.meta.layout`:
+
+```ts
+const routes = [
+  { path: '/',                redirect: () => useAuthStore().isAuthenticated ? { name: 'dashboard' } : { name: 'login' } },
+  { path: '/login',           name: 'login',           component: LoginPage,           meta: { layout: 'auth', guestOnly: true } },
+  { path: '/signup',          name: 'signup',          component: SignupPage,          meta: { layout: 'auth', guestOnly: true } },
+  { path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordPage,  meta: { layout: 'auth', guestOnly: true } },
+  { path: '/reset-password',  name: 'reset-password',  component: ResetPasswordPage,   meta: { layout: 'auth', guestOnly: true } },
+  { path: '/dashboard',       name: 'dashboard',       component: DashboardPage,       meta: { layout: 'app',  requiresAuth: true } },
+  { path: '/:pathMatch(.*)*', redirect: { name: 'root' } },
+]
+
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (to.meta.requiresAuth && !auth.isAuthenticated) return { name: 'login' }
+  if (to.meta.guestOnly && auth.isAuthenticated)     return { name: 'dashboard' }
+})
 ```
-client/src/app/
-├── layout.tsx              ← AuthProvider + globals.css
-├── (public)/
-│   ├── layout.tsx          ← MainLayout
-│   └── page.tsx            → /
-├── (auth)/
-│   ├── layout.tsx          ← <GuestRoute><MainLayout + centered flex wrapper>
-│   ├── login/page.tsx              → /login
-│   ├── signup/page.tsx             → /signup
-│   ├── forgot-password/page.tsx    → /forgot-password
-│   └── reset-password/page.tsx     → /reset-password
-└── (app)/
-    ├── layout.tsx          ← <ProtectedRoute><MainLayout>
-    └── dashboard/page.tsx          → /dashboard
-```
 
-Parens don't affect URLs — they're grouping for layout inheritance.
+| Meta             | Behavior                                                       |
+| ---------------- | -------------------------------------------------------------- |
+| `requiresAuth`   | Guest visitors → bounced to `/login`                           |
+| `guestOnly`      | Authed visitors → bounced to `/dashboard`                      |
+| `layout: 'auth'` | Rendered inside `AuthLayout` (centered card)                   |
+| `layout: 'app'`  | Rendered inside `AppLayout` (header with user name + logout)   |
 
-| Group     | Layout wraps in                          | Auth state                                      |
-| --------- | ---------------------------------------- | ----------------------------------------------- |
-| `(public)`| `MainLayout`                             | Either                                          |
-| `(auth)`  | `GuestRoute` → `MainLayout` + centered   | **Guest only** — authed users → `/dashboard`    |
-| `(app)`   | `ProtectedRoute` → `MainLayout`          | **Authed only** — guests → `/login`             |
-
-**Header is adaptive** (reads `useAuth().user` + `usePathname()`):
-
-| User state | Page             | Right side                   |
-| ---------- | ---------------- | ---------------------------- |
-| Logged out | `/`              | Sign in · Get started        |
-| Logged out | `/login`         | Get started                  |
-| Logged out | `/signup`        | Sign in                      |
-| Logged out | other auth pages | Sign in · Get started        |
-| Logged in  | (anywhere)       | Dashboard · email · Logout   |
-
-Mobile (`< md`) collapses everything into a hamburger that opens a right-side `Sheet` drawer.
+`App.vue` is a layout switcher: `<component :is="layoutComponent"><router-view /></component>`.
 
 ---
 
@@ -285,3 +290,4 @@ Mobile (`< md`) collapses everything into a hamburger that opens a right-side `S
 - **Cookie domain in production** — frontend + API must share a parent domain (`SESSION_DOMAIN=.example.com`). If they don't, fall back to Bearer auth.
 - **No email verification gate** — fresh accounts can sign in immediately. Add `MustVerifyEmail` to `User` and the `verified` middleware if needed.
 - **No multi-factor auth** — passwords are the only credential. TOTP / WebAuthn would be a follow-up.
+- **Non-JSON 401 path** — unauth requests to `/api/*` without `Accept: application/json` currently 500 trying to redirect to a `login` route that doesn't exist. The Vue client always sends the Accept header, so this is invisible in normal use; fix is to register `shouldRenderJsonWhen` in `bootstrap/app.php` for any path matching `api/*`.

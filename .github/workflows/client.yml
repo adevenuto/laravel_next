@@ -85,7 +85,7 @@ jobs:
             --exclude='.env*'
             --exclude='.git/'
           path: client/dist/
-          remote_path: /var/www/laravel_next/client/
+          remote_path: /var/www/laravel_vue/client/
           remote_host: ${{ secrets.EC2_HOST }}
           remote_user: ${{ secrets.EC2_USER }}
           remote_key: ${{ secrets.EC2_SSH_KEY }}
