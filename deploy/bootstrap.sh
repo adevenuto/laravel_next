@@ -4,23 +4,20 @@
 # Ubuntu 22.04 EC2 (t2.micro / t3.micro). Idempotent: safe to re-run.
 #
 # Usage (from your laptop, SSH'd into the EC2 box as `ubuntu`):
-#   curl -fsSL https://raw.githubusercontent.com/adevenuto/laravel_next/development/deploy/bootstrap.sh \
+#   curl -fsSL https://raw.githubusercontent.com/adevenuto/laravel_vue/development/deploy/bootstrap.sh \
 #     | REPO_BRANCH=development bash
 #
 # After deploy is live on main, drop the env override:
-#   curl -fsSL https://raw.githubusercontent.com/adevenuto/laravel_next/main/deploy/bootstrap.sh | bash
-#
-# (The GitHub repo name is still `laravel_next` even though the app was
-# rebuilt as a Vue SPA. App-level naming uses `laravel_vue`.)
+#   curl -fsSL https://raw.githubusercontent.com/adevenuto/laravel_vue/main/deploy/bootstrap.sh | bash
 #
 # Env vars (optional):
-#   REPO_URL    — git remote (default: https://github.com/adevenuto/laravel_next.git)
+#   REPO_URL    — git remote (default: https://github.com/adevenuto/laravel_vue.git)
 #   REPO_BRANCH — branch to clone (default: main)
 #   APP_DIR     — install path (default: /var/www/laravel_vue)
 
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/adevenuto/laravel_next.git}"
+REPO_URL="${REPO_URL:-https://github.com/adevenuto/laravel_vue.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 APP_DIR="${APP_DIR:-/var/www/laravel_vue}"
 # PHP 8.5 ships in Ubuntu 26.04 (Resolute) default repos — no PPA needed.

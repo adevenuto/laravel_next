@@ -72,7 +72,7 @@ laravel_vue/
 ### 1. Clone
 
 ```bash
-git clone git@github.com:<you>/laravel_next.git laravel_vue
+git clone git@github.com:<you>/laravel_vue.git
 cd laravel_vue
 ```
 
@@ -212,11 +212,11 @@ SSH in and run the bootstrap script:
 ssh -i ~/.ssh/laravel-next-ec2.pem ubuntu@<elastic-ip>
 
 # Pull bootstrap from the active branch (development until the first deploy on main)
-curl -fsSL https://raw.githubusercontent.com/adevenuto/laravel_next/development/deploy/bootstrap.sh \
+curl -fsSL https://raw.githubusercontent.com/adevenuto/laravel_vue/development/deploy/bootstrap.sh \
   | REPO_BRANCH=development bash
 ```
 
-This installs nginx, PHP 8.5-FPM, Node 20, Composer, ufw; clones the repo to `/var/www/laravel_vue`; copies the canonical `deploy/nginx.conf` into `sites-available/laravel_vue` and enables it. (The GitHub repo is still named `laravel_next` even though the app was rebuilt as a Vue SPA — only the app-level naming uses `laravel_vue`.)
+This installs nginx, PHP 8.5-FPM, Node 20, Composer, ufw; clones the repo to `/var/www/laravel_vue`; copies the canonical `deploy/nginx.conf` into `sites-available/laravel_vue` and enables it.
 
 ### One-time backend + first-build
 
