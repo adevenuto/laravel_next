@@ -19,7 +19,7 @@ defaults:
 
 jobs:
   build:
-    name: Lint + Build
+    name: Lint + Test + Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,44 +39,28 @@ jobs:
       - name: Type-check
         run: npm run type-check
 
-      - name: Build (standalone)
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build (Vite SPA)
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: npm run build
 
-      - name: Stage standalone output
-        # Next.js standalone doesn't auto-copy `public/` or `.next/static/`.
-        # Bundle them in alongside server.js so the EC2 receives a self-contained payload.
-        # rsync (vs cp -R) is explicit about preserving dotfiles like the inner .next/ dir.
+      - name: Verify dist output
         run: |
-          rm -rf deploy_out
-          mkdir -p deploy_out
-          rsync -a .next/standalone/ deploy_out/
-          rsync -a .next/static deploy_out/.next/
-          rsync -a public deploy_out/
-
-      - name: Verify staging includes inner .next
-        # actions/upload-artifact@v4 strips dotfiles by default — if .next/ is
-        # missing here, the artifact would silently ship without the build output.
-        run: |
-          test -f deploy_out/server.js              || { echo "missing server.js"; exit 1; }
-          test -d deploy_out/.next                  || { echo "missing .next/"; exit 1; }
-          test -f deploy_out/.next/BUILD_ID         || { echo "missing .next/BUILD_ID"; exit 1; }
-          test -d deploy_out/.next/static           || { echo "missing .next/static/"; exit 1; }
-          test -d deploy_out/public                 || { echo "missing public/"; exit 1; }
-          echo "✓ Staging verified"
-          ls -la deploy_out/
-          ls -la deploy_out/.next/ | head -10
+          test -f dist/index.html  || { echo "missing dist/index.html"; exit 1; }
+          test -d dist/assets       || { echo "missing dist/assets/"; exit 1; }
+          echo "✓ dist verified"
+          ls -la dist/
 
       - name: Upload artifact
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: client-standalone
-          path: client/deploy_out/
+          name: client-dist
+          path: client/dist/
           retention-days: 1
-          # CRITICAL: v4 strips dotfiles (including `.next/`) by default.
-          include-hidden-files: true
 
   deploy:
     name: Deploy to EC2
@@ -90,34 +74,18 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: client-standalone
-          path: client/deploy_out/
+          name: client-dist
+          path: client/dist/
 
-      - name: Sync standalone output to EC2
+      - name: Sync dist to EC2
         uses: burnett01/rsync-deployments@7.0.1
         with:
           switches: >-
             -avzr --delete
             --exclude='.env*'
             --exclude='.git/'
-          path: client/deploy_out/
-          remote_path: /var/www/laravel_next/client/.next/standalone/
+          path: client/dist/
+          remote_path: /var/www/laravel_next/client/
           remote_host: ${{ secrets.EC2_HOST }}
           remote_user: ${{ secrets.EC2_USER }}
           remote_key: ${{ secrets.EC2_SSH_KEY }}
-
-      - name: Reload pm2 on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            cd /var/www/laravel_next/client/.next/standalone
-            # Client runs as ubuntu (pm2 has startup configured for ubuntu).
-            sudo chown -R ubuntu:ubuntu /var/www/laravel_next/client
-            # First-time deploys won't have the process yet; start if absent, reload if present.
-            pm2 reload laravel_next_client --update-env 2>/dev/null \
-              || pm2 start server.js --name laravel_next_client --cwd /var/www/laravel_next/client/.next/standalone
-            pm2 save

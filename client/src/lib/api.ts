@@ -1,173 +1,61 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import axios, { AxiosError } from 'axios'
+import type { ApiErrorBody } from '@/types/user'
 
-type ApiOptions = {
-  method?: string;
-  body?: Record<string, unknown>;
-  signal?: AbortSignal;
-};
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '',
+  withCredentials: true,
+  withXSRFToken: true,
+  headers: { Accept: 'application/json' },
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
+})
 
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
+let csrfPromise: Promise<void> | null = null
+
+export function ensureCsrfCookie(): Promise<void> {
+  if (!csrfPromise) {
+    csrfPromise = api
+      .get('/sanctum/csrf-cookie')
+      .then(() => undefined)
+      .catch((err: unknown) => {
+        csrfPromise = null
+        throw err
+      })
+  }
+  return csrfPromise
 }
 
-let csrfFetched = false;
-
-async function ensureCsrfCookie(): Promise<void> {
-  if (csrfFetched) return;
-  const res = await fetch(`${API_URL}/sanctum/csrf-cookie`, {
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Could not initialize session");
-  csrfFetched = true;
+export function resetCsrf(): void {
+  csrfPromise = null
 }
 
-async function apiFetch<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-  const { method = "GET", body, signal } = options;
-  const isMutation = method !== "GET" && method !== "HEAD";
-
-  if (isMutation) {
-    await ensureCsrfCookie();
-  }
-
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-  if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const xsrf = getCookie("XSRF-TOKEN");
-  if (xsrf && isMutation) {
-    headers["X-XSRF-TOKEN"] = xsrf;
-  }
-
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: "include",
-    signal,
-  });
-
-  if (res.status === 204) {
-    return undefined as T;
-  }
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    let message = "An error occurred";
+export function extractMessage(err: unknown): string {
+  if (err instanceof AxiosError) {
+    const data = err.response?.data as ApiErrorBody | undefined
     if (data?.errors) {
-      message = Object.values(data.errors as Record<string, string[]>).flat().join(" ");
-    } else if (data?.message) {
-      message = data.message as string;
+      const firstField = Object.values(data.errors)[0]
+      if (firstField && firstField.length > 0) return firstField[0] ?? 'Request failed'
     }
-    throw new Error(message);
+    if (data?.message) return data.message
+    if (err.message) return err.message
   }
-
-  return data as T;
+  if (err instanceof Error) return err.message
+  return 'Something went wrong. Please try again.'
 }
 
-export type User = { id: number; first_name: string; last_name: string; email: string };
-
-export type StockMatch = {
-  symbol: string;
-  name: string;
-  type: string;
-  region: string;
-  currency: string;
-  matchScore: string;
-};
-
-export type StockOverview = {
-  symbol: string;
-  name: string;
-  description: string;
-  exchange: string;
-  currency: string;
-  country: string;
-  sector: string;
-  industry: string;
-  marketCap: string;
-  peRatio: string;
-  pegRatio: string;
-  eps: string;
-  dividendPerShare: string;
-  dividendYield: string;
-  bookValue: string;
-  fiftyTwoWeekHigh: string;
-  fiftyTwoWeekLow: string;
-};
-
-export type StockQuote = {
-  symbol: string;
-  open: string;
-  high: string;
-  low: string;
-  price: string;
-  volume: string;
-  latestTradingDay: string;
-  previousClose: string;
-  change: string;
-  changePercent: string;
-};
-
-export type QuarterlyRevenue = {
-  fiscalDateEnding: string;
-  totalRevenue: string;
-  reportedCurrency: string;
-};
-
-export type StockIncomeStatement = {
-  symbol: string;
-  quarterlyReports: QuarterlyRevenue[];
-};
-
-export const api = {
-  register: (data: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    password: string;
-    password_confirmation: string;
-  }) => apiFetch<{ user: User }>("/api/register", { method: "POST", body: data }),
-
-  login: (data: { email: string; password: string }) =>
-    apiFetch<{ user: User }>("/api/login", { method: "POST", body: data }),
-
-  logout: () => apiFetch<{ message: string }>("/api/logout", { method: "POST" }),
-
-  passwordReset: (data: { email: string }) =>
-    apiFetch<{ message: string }>("/api/password-reset", { method: "POST", body: data }),
-
-  passwordResetConfirm: (data: {
-    email: string;
-    token: string;
-    password: string;
-    password_confirmation: string;
-  }) => apiFetch<{ message: string }>("/api/password-reset/confirm", { method: "POST", body: data }),
-
-  getUser: () => apiFetch<User>("/api/user"),
-
-  searchStocks: (term: string, signal?: AbortSignal) =>
-    apiFetch<{ results: StockMatch[] }>(`/api/search/${encodeURIComponent(term)}`, { signal }),
-
-  getStockOverview: (symbol: string, signal?: AbortSignal) =>
-    apiFetch<StockOverview>(`/api/stocks/${encodeURIComponent(symbol)}/overview`, { signal }),
-
-  getStockQuote: (symbol: string, signal?: AbortSignal) =>
-    apiFetch<StockQuote>(`/api/stocks/${encodeURIComponent(symbol)}/quote`, { signal }),
-
-  getStockIncomeStatement: (symbol: string, signal?: AbortSignal) =>
-    apiFetch<StockIncomeStatement>(
-      `/api/stocks/${encodeURIComponent(symbol)}/income-statement`,
-      { signal },
-    ),
-
-  // Force re-fetch the CSRF cookie (e.g. on logout when session is invalidated).
-  resetCsrf: () => {
-    csrfFetched = false;
-  },
-};
+api.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    if (error.response?.status === 401) {
+      resetCsrf()
+      const { useAuthStore } = await import('@/stores/auth')
+      const auth = useAuthStore()
+      auth.clear()
+      const { default: router } = await import('@/router')
+      if (router.currentRoute.value.meta.requiresAuth) {
+        router.push({ name: 'login' })
+      }
+    }
+    return Promise.reject(error)
+  }
+)
