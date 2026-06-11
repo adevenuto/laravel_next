@@ -50,7 +50,7 @@ async function onSubmit() {
       <CardContent class="space-y-4">
         <div
           v-if="error"
-          class="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          class="rounded-soft border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive font-medium"
         >
           {{ error }}
         </div>

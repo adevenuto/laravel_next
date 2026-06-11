@@ -1,0 +1,13 @@
+/* Display: Fraunces. Used for headings, the vocab counter, reward moments,
+   and the wordmark. Two weights ship: 600 for body-display blends, 900 for
+   north-star numerals. */
+@import '@fontsource/fraunces/600.css';
+@import '@fontsource/fraunces/900.css';
+@import '@fontsource/fraunces/600-italic.css';
+
+/* Reading: Source Sans 3. Tuned for Latin extended-A diacritics — its acute
+   marks and ñ tilde stay crisp at sub-16px, which matters because Spanish
+   text in this app is curriculum, not decoration. */
+@import '@fontsource/source-sans-3/400.css';
+@import '@fontsource/source-sans-3/600.css';
+@import '@fontsource/source-sans-3/700.css';

@@ -10,16 +10,33 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Content first — these seeders only touch reference tables and are idempotent
+        // (updateOrCreate keyed by slug/key), so they're safe to re-run on existing data.
+        $this->call([
+            BadgeSeeder::class,
+            LevelSeeder::class,
+            UnitSeeder::class,
+            LessonSeeder::class,
+            ExerciseSeeder::class,
+            ChunkSeeder::class,
+            CognateWordSeeder::class,
+            BossScenarioSeeder::class,
+            DialogueLineSeeder::class,
         ]);
+
+        // Dev convenience: a deterministic test user with the new fillable columns.
+        // Only created if it doesn't already exist.
+        User::firstOrCreate(
+            ['email' => 'anthonydevenuto@gmail.com'],
+            [
+                'first_name' => 'Anthony',
+                'last_name' => 'DeVenuto',
+                'password' => bcrypt('Adev312!'),
+                'display_name' => 'Tester',
+                'hometown' => 'Brooklyn',
+            ]
+        );
     }
 }

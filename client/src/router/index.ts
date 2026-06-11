@@ -4,11 +4,9 @@ import { useAuthStore } from '@/stores/auth'
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    name: 'root',
-    redirect: () => {
-      const auth = useAuthStore()
-      return auth.isAuthenticated ? { name: 'dashboard' } : { name: 'login' }
-    },
+    name: 'landing',
+    component: () => import('@/pages/LandingPage.vue'),
+    meta: { layout: 'public', guestOnly: true },
   },
   {
     path: '/login',
@@ -41,8 +39,20 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'app', requiresAuth: true },
   },
   {
+    path: '/lesson/:slug',
+    name: 'lesson-play',
+    component: () => import('@/pages/LessonPlayPage.vue'),
+    meta: { layout: 'app', requiresAuth: true },
+  },
+  {
+    path: '/profile',
+    name: 'profile',
+    component: () => import('@/pages/ProfilePage.vue'),
+    meta: { layout: 'app', requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
-    redirect: { name: 'root' },
+    redirect: { name: 'landing' },
   },
 ]
 

@@ -14,8 +14,15 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/fraunces": "^5.2.9",
+    "@fontsource/source-sans-3": "^5.2.9",
+    "@formkit/drag-and-drop": "^0.5.3",
     "@vueuse/core": "^14.3.0",
+    "@vueuse/motion": "^3.0.3",
     "axios": "^1.17.0",
+    "canvas-confetti": "^1.9.4",
+    "gsap": "^3.15.0",
+    "howler": "^2.2.4",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",
     "radix-vue": "^1.9.17",
@@ -24,6 +31,8 @@
   },
   "devDependencies": {
     "@pinia/testing": "^1.0.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/howler": "^2.2.13",
     "@types/node": "^25.9.1",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vitest/coverage-v8": "^3.2.6",
