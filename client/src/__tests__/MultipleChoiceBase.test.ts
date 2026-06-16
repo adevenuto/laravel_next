@@ -22,7 +22,7 @@ describe('MultipleChoiceBase', () => {
     expect(events![0][0]).toMatchObject({ correct: true })
   })
 
-  it('coaches on the first wrong tap and emits complete:false on the second', async () => {
+  it('coaches on the first wrong tap and emits complete:false on the second (legacy default)', async () => {
     const wrapper = mount(MultipleChoiceBase, {
       props: { prompt: 'Tap the vowel', options, correctValue: 'e' },
     })
@@ -41,5 +41,56 @@ describe('MultipleChoiceBase', () => {
     const events = wrapper.emitted('complete')
     expect(events).toBeTruthy()
     expect(events![0][0]).toMatchObject({ correct: false })
+  })
+
+  describe('with require-perfect (mastery gate)', () => {
+    it('never commits a wrong tap, no matter how many times the user tries wrong', async () => {
+      const wrapper = mount(MultipleChoiceBase, {
+        props: { prompt: 'Tap the vowel', options, correctValue: 'e', requirePerfect: true },
+      })
+
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'a')!
+        .trigger('click')
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'i')!
+        .trigger('click')
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'a')!
+        .trigger('click')
+
+      expect(wrapper.emitted('complete')).toBeFalsy()
+
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'e')!
+        .trigger('click')
+      const events = wrapper.emitted('complete')
+      expect(events).toBeTruthy()
+      expect(events![0][0]).toMatchObject({ correct: true, score: 100 })
+    })
+
+    it('persists the coach tint on every wrong option the user has tapped', async () => {
+      const wrapper = mount(MultipleChoiceBase, {
+        props: { prompt: 'Tap the vowel', options, correctValue: 'e', requirePerfect: true },
+      })
+
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'a')!
+        .trigger('click')
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'i')!
+        .trigger('click')
+
+      const aBtn = wrapper.findAll('button[type="button"]').find((b) => b.text() === 'a')!
+      const iBtn = wrapper.findAll('button[type="button"]').find((b) => b.text() === 'i')!
+      expect(aBtn.classes().join(' ')).toMatch(/border-coach/)
+      expect(iBtn.classes().join(' ')).toMatch(/border-coach/)
+    })
   })
 })

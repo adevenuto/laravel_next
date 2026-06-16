@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
 import LessonPlayPage from '@/pages/LessonPlayPage.vue'
+import LessonResults from '@/pages/LessonPlayPage.results.vue'
 import { useLessonStore } from '@/stores/lesson'
 import { resolveExerciseComponent } from '@/lib/exerciseRegistry'
 
@@ -59,5 +60,70 @@ describe('LessonPlayPage', () => {
     // Sanity check that the page's resolver agrees with the registry under test.
     expect(resolveExerciseComponent('EarTraining')).not.toBeNull()
     expect(resolveExerciseComponent('NotARealOne')).toBeNull()
+  })
+})
+
+describe('LessonPlayPage.results', () => {
+  const baseProps = {
+    lessonTitle: 'Vowel Lock-In',
+    completion: {
+      next_lesson_slug: 'l-1-1-2-consonant-essentials',
+      reward: null,
+    } as never,
+  }
+
+  it('emits retry when the Try again button is clicked', async () => {
+    const wrapper = mount(LessonResults, {
+      props: {
+        ...baseProps,
+        results: [
+          { exerciseId: 1, result: { correct: true, score: 100 } },
+          { exerciseId: 2, result: { correct: false, score: 0 } },
+        ],
+      },
+    })
+
+    const tryAgain = wrapper.findAll('button').find((b) => b.text().includes('Try again'))!
+    expect(tryAgain).toBeTruthy()
+    await tryAgain.trigger('click')
+
+    expect(wrapper.emitted('retry')).toBeTruthy()
+    expect(wrapper.emitted('retry')!.length).toBe(1)
+  })
+
+  it('promotes Try again to the saffron primary when score is < 100%', () => {
+    const wrapper = mount(LessonResults, {
+      props: {
+        ...baseProps,
+        results: [
+          { exerciseId: 1, result: { correct: true, score: 100 } },
+          { exerciseId: 2, result: { correct: false, score: 0 } },
+        ],
+      },
+    })
+
+    const tryAgain = wrapper.findAll('button').find((b) => b.text().includes('Try again'))!
+    expect(tryAgain.classes().join(' ')).toMatch(/bg-primary/)
+
+    const nextCta = wrapper.findAll('button').find((b) => b.text().includes('Next lesson'))!
+    expect(nextCta.classes().join(' ')).not.toMatch(/bg-primary/)
+  })
+
+  it('keeps Next lesson as the saffron primary at 100% and dims Try again', () => {
+    const wrapper = mount(LessonResults, {
+      props: {
+        ...baseProps,
+        results: [
+          { exerciseId: 1, result: { correct: true, score: 100 } },
+          { exerciseId: 2, result: { correct: true, score: 100 } },
+        ],
+      },
+    })
+
+    const tryAgain = wrapper.findAll('button').find((b) => b.text().includes('Try again'))!
+    expect(tryAgain.classes().join(' ')).not.toMatch(/bg-primary/)
+
+    const nextCta = wrapper.findAll('button').find((b) => b.text().includes('Next lesson'))!
+    expect(nextCta.classes().join(' ')).toMatch(/bg-primary/)
   })
 })

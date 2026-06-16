@@ -433,6 +433,8 @@ The lesson player's teach screens consume `body_md` JSON from the server and nee
 
 **Resolution applied:** Compute the rendered string in `<script setup>` as `renderedBody` and place an `<!-- eslint-disable-next-line vue/no-v-html -->` immediately above the consuming `<div>`. The element is single-line so the disable lands on the right LOC. **Phase 3+ recommendation:** swap the inline renderer for `markdown-it` if the teach-screen content grows; until then the surface area is small enough that the bespoke renderer is appropriate.
 
+**Resolved in Phase 2.6.** The inline `renderMarkdown(string) → string` HTML renderer and its `v-html` consumer were replaced with structured rendering: `client/src/lib/parseTeachMarkdown.ts` emits a typed `TeachBlock[]` token tree, and `client/src/components/TeachBody.vue` renders it via `v-for` + Vue text interpolation. No `v-html`, no ESLint disable. The same swap added a new `[[es|audio_key|speak_es]]` token type wired to the new `<EsAudioWord>` component for inline tap-to-hear on teach screens.
+
 #### Conflict 13 — `RuleSort` bucket count is fixed at 3 in Phase 2
 
 `@formkit/drag-and-drop`'s `useDragAndDrop` composable returns refs from top-level calls; you can't easily loop it over a `v-for`. The Unit 1.1 RuleSort payload has exactly 3 buckets (Rules 1/2/3), so the component hardcodes 3 lists with a `MAX_BUCKETS` constant and dev-mode warning if more are seeded.

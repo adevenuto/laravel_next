@@ -51,7 +51,15 @@ export function useFuzzyMatch(expected: string, given: string): FuzzyMatchResult
 
 function strip(s: string): string {
   // U+0300–U+036F = combining marks (covers all Spanish diacritics).
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+  // Punctuation and internal whitespace are normalised so that SpeechRecognition's
+  // sentence-cased + punctuated transcripts compare cleanly against seeded text.
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[¿¡?!.,;:"'`()…—–\-]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function hasAccents(s: string): boolean {

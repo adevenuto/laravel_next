@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CheckCircle2, Sparkles } from 'lucide-vue-next'
+import { CheckCircle2, RotateCcw, Sparkles } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import type { ExerciseResult, LessonCompleteResponse } from '@/types/domain'
 
@@ -11,7 +11,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ next: [] }>()
+const emit = defineEmits<{ next: []; retry: [] }>()
 
 const correctCount = computed(() => props.results.filter((r) => r.result.correct).length)
 const total = computed(() => props.results.length)
@@ -34,6 +34,11 @@ const ctaLabel = computed(() => {
 })
 
 const hasReward = computed(() => Boolean(props.completion?.reward?.was_new))
+
+// Promote "Try again" to primary visual weight when score is imperfect so the
+// invitation to practice reads as the obvious next step. At 100% the next/dashboard
+// CTA stays primary and "Try again" is the quiet secondary.
+const isPerfect = computed(() => percent.value === 100)
 </script>
 
 <template>
@@ -95,12 +100,37 @@ const hasReward = computed(() => Boolean(props.completion?.reward?.was_new))
       </p>
     </div>
 
-    <button
-      type="button"
-      class="inline-flex h-14 w-full items-center justify-center rounded-soft bg-primary text-lg font-semibold text-primary-foreground transition-transform duration-quick ease-quick hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      @click="emit('next')"
-    >
-      {{ ctaLabel }}
-    </button>
+    <div class="flex flex-col gap-3">
+      <button
+        type="button"
+        :class="
+          cn(
+            'inline-flex h-14 w-full items-center justify-center rounded-soft text-lg font-semibold transition-transform duration-quick ease-quick hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            isPerfect
+              ? 'bg-primary text-primary-foreground'
+              : 'border-2 border-border bg-card text-foreground'
+          )
+        "
+        @click="emit('next')"
+      >
+        {{ ctaLabel }}
+      </button>
+
+      <button
+        type="button"
+        :class="
+          cn(
+            'inline-flex h-14 w-full items-center justify-center gap-2 rounded-soft text-lg font-semibold transition-transform duration-quick ease-quick hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            isPerfect
+              ? 'border-2 border-border bg-card text-foreground'
+              : 'bg-primary text-primary-foreground'
+          )
+        "
+        @click="emit('retry')"
+      >
+        <RotateCcw class="h-5 w-5" />
+        Try again
+      </button>
+    </div>
   </div>
 </template>

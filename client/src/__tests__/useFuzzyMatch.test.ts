@@ -88,4 +88,36 @@ describe('useFuzzyMatch', () => {
     expect(r.correct).toBe(false)
     expect(r.retry).toBe(false)
   })
+
+  it('ignores punctuation differences from SpeechRecognition output (Hola, Hermano)', () => {
+    // The browser SR returned "Hola Hermano" against seeded "Hola, Hermano".
+    const r = useFuzzyMatch('Hola, Hermano', 'Hola Hermano')
+    expect(r.correct).toBe(true)
+    expect(r.coaching).toBeNull()
+  })
+
+  it('ignores Spanish opening punctuation (¿ ¡) and trailing ? !', () => {
+    const r = useFuzzyMatch('¿Cómo estás?', 'Cómo estás')
+    expect(r.correct).toBe(true)
+    expect(r.coaching).toBeNull()
+  })
+
+  it('still coaches accent loss when punctuation also differs', () => {
+    const r = useFuzzyMatch('¿Cómo estás?', 'como estas')
+    expect(r.correct).toBe(true)
+    expect(r.coaching).toMatch(/stress arrow/i)
+    expect(r.coaching).toContain('¿Cómo estás?')
+  })
+
+  it('ignores a trailing period', () => {
+    const r = useFuzzyMatch('estoy bien', 'estoy bien.')
+    expect(r.correct).toBe(true)
+    expect(r.coaching).toBeNull()
+  })
+
+  it('collapses runs of internal whitespace', () => {
+    const r = useFuzzyMatch('hola hermano', 'hola   hermano')
+    expect(r.correct).toBe(true)
+    expect(r.coaching).toBeNull()
+  })
 })

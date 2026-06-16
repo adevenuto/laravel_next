@@ -61,6 +61,7 @@ watch(roundIndex, (i) => {
       :correct-value="round.answer_index"
       :prompt-audio-key="round.audio_key"
       :play-prompt-audio="playPrompt"
+      :require-perfect="true"
       @complete="onRoundComplete"
     />
   </div>

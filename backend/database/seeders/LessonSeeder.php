@@ -49,17 +49,17 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Five consonant moves',
-                        'body_md' => "- **ñ** — *ny* as in *canyon* (mañana)\n- **ll** — *y* as in *yes* (llamo)\n- **h** — totally silent (hola = *o-la*)\n- **j** — back-of-throat *h*, like *Bach* (jamón)\n- **rr** — rolled. A single *r* will do for now.",
+                        'body_md' => "- **ñ** — *ny* as in *canyon* ([[mañana]])\n- **ll** — *y* as in *yes* ([[llamo]])\n- **h** — totally silent ([[hola]] = *o-la*)\n- **j** — back-of-throat *h*, like *Bach* ([[jamón]])\n- **rr** — rolled. A single *r* will do for now.",
                     ],
                     [
                         'type' => 'callout',
                         'title' => 'v ≈ b',
-                        'body_md' => "Don't try to make a real English *v*. Spanish *v* and *b* sound nearly identical — somewhere between the two. *Vamos* and *bamos* would sound the same.",
+                        'body_md' => "Don't try to make a real English *v*. Spanish *v* and *b* sound nearly identical — somewhere between the two. [[Vamos]] and *bamos* would sound the same.",
                     ],
                     [
                         'type' => 'audio_demo',
                         'title' => 'Hear the moves',
-                        'body_md' => 'mañana · llamo · hola · jamón · perro',
+                        'body_md' => '[[mañana]] · [[llamo]] · [[hola]] · [[jamón]] · [[perro]]',
                         'audio_key' => 'demo_consonants',
                     ],
                 ],
@@ -74,12 +74,12 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Three rules. That is it.',
-                        'body_md' => "**Rule 1** — Word ends in a *vowel, n,* or *s* → stress the **second-to-last** syllable. (*ca-SA, jo-VEN, gra-CIAS*)\n\n**Rule 2** — Word ends in any other consonant → stress the **last** syllable. (*es-pa-ÑOL, ciu-DAD*)\n\n**Rule 3** — A **written accent** (´) overrides everything. It just says: *stress is here.* (*ca-FÉ, A-fri-ca, in-for-ma-CIÓN*)",
+                        'body_md' => "**Rule 1** — Word ends in a *vowel, n,* or *s* → stress the **second-to-last** syllable. ([[CA-sa|tts_word_casa|casa]], [[JO-ven|tts_word_joven|joven]], [[GRA-cias|tts_word_gracias|gracias]])\n\n**Rule 2** — Word ends in any other consonant → stress the **last** syllable. ([[es-pa-ÑOL|tts_word_espanol|español]], [[ciu-DAD|tts_word_ciudad|ciudad]])\n\n**Rule 3** — A **written accent** (´) overrides everything. It just says: *stress is here.* ([[ca-FÉ|tts_word_cafe|café]], [[Á-fri-ca|tts_word_africa|África]], [[in-for-ma-CIÓN|tts_word_informacion|información]])",
                     ],
                     [
                         'type' => 'example',
                         'title' => 'Compare',
-                        'body_md' => "- **papa** = potato (rule 1: PA-pa)\n- **papá** = dad (rule 3: pa-PÁ)\n\nThe accent mark is the difference between *potato* and *dad*. Accents are content, not decoration.",
+                        'body_md' => "- [[papa|tts_word_papa]] = potato (rule 1: [[PA-pa|tts_word_papa|papa]])\n- [[papá|tts_word_papa_dad]] = dad (rule 3: [[pa-PÁ|tts_word_papa_dad|papá]])\n\nThe accent mark is the difference between *potato* and *dad*. Accents are content, not decoration.",
                     ],
                 ],
             ],
@@ -95,7 +95,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Match the time of day',
-                        'body_md' => "Spanish picks the greeting from the **clock**.\n\n- *buenos días* — morning (until ~noon)\n- *buenas tardes* — afternoon\n- *buenas noches* — evening / night\n\nAnd two universal: *hola* (any time) and *adiós* (any time).",
+                        'body_md' => "Spanish picks the greeting from the **clock**.\n\n- [[buenos días]] — morning (until ~noon)\n- [[buenas tardes]] — afternoon\n- [[buenas noches]] — evening / night\n\nAnd two universal: [[hola]] (any time) and [[adiós]] (any time).",
                     ],
                 ],
             ],
@@ -109,7 +109,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'The ping-pong',
-                        'body_md' => "*¿Cómo estás?* — How are you?\n*Estoy bien, gracias. ¿Y tú?* — I'm well, thanks. And you?\n\nAlways volley it back: **¿y tú?** This is the secret to sounding native.",
+                        'body_md' => "[[¿Cómo estás?]] — How are you?\n[[Estoy bien, gracias. ¿Y tú?]] — I'm well, thanks. And you?\n\nAlways volley it back: [[¿y tú?]] This is the secret to sounding native.",
                     ],
                 ],
             ],
@@ -123,7 +123,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Your turn',
-                        'body_md' => "*Me llamo ___* — My name is ___.\n*Soy de ___* — I'm from ___.\n*Mucho gusto.* — Pleasure to meet you.\n*Igualmente.* — Likewise.\n\nWe will use your real name and hometown in the next drill.",
+                        'body_md' => "[[Me llamo ___|tts_chunk_me_llamo|me llamo]] — My name is ___.\n[[Soy de ___|tts_chunk_soy_de|soy de]] — I'm from ___.\n[[Mucho gusto.]] — Pleasure to meet you.\n[[Igualmente.]] — Likewise.\n\nWe will use your real name and hometown in the next drill.",
                     ],
                 ],
             ],
@@ -137,7 +137,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Three sorrys. Pick the right one.',
-                        'body_md' => "- *perdón* — I bumped you, I interrupted, I made a small mistake.\n- *disculpe* — Excuse me, can I get your attention?\n- *con permiso* — Coming through. (Bus, elevator, crowded café.)\n\nGetting these three right is what makes you sound *raised in Spanish*, not *taught in Spanish*.",
+                        'body_md' => "- [[perdón]] — I bumped you, I interrupted, I made a small mistake.\n- [[disculpe]] — Excuse me, can I get your attention?\n- [[con permiso]] — Coming through. (Bus, elevator, crowded café.)\n\nGetting these three right is what makes you sound *raised in Spanish*, not *taught in Spanish*.",
                     ],
                 ],
             ],
@@ -153,7 +153,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'When you are lost, say so',
-                        'body_md' => "*No entiendo.* — I don't understand.\n*No sé.* — I don't know.\n*No hablo mucho español.* — I don't speak much Spanish.\n*¿Habla inglés?* — Do you speak English?\n\nAsking for help is a skill. This unit drills it until it is automatic.",
+                        'body_md' => "[[No entiendo.]] — I don't understand.\n[[No sé.]] — I don't know.\n[[No hablo mucho español.]] — I don't speak much Spanish.\n[[¿Habla inglés?]] — Do you speak English?\n\nAsking for help is a skill. This unit drills it until it is automatic.",
                     ],
                 ],
             ],
@@ -167,7 +167,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Four ways to buy time',
-                        'body_md' => "*Más despacio, por favor.* — Slower, please.\n*Repita, por favor.* — Repeat, please.\n*Otra vez.* — One more time.\n*Un momento.* — One moment.",
+                        'body_md' => "[[Más despacio, por favor.]] — Slower, please.\n[[Repita, por favor.]] — Repeat, please.\n[[Otra vez.]] — One more time.\n[[Un momento.]] — One moment.",
                     ],
                 ],
             ],
@@ -181,7 +181,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'The vocabulary cheat codes',
-                        'body_md' => "*¿Cómo se dice ___?* — How do you say ___?\n*¿Qué significa ___?* — What does ___ mean?\n\nMaster these two and you can keep any conversation going forever.",
+                        'body_md' => "[[¿Cómo se dice ___?|tts_chunk_como_se_dice|cómo se dice]] — How do you say ___?\n[[¿Qué significa ___?|tts_chunk_que_significa|qué significa]] — What does ___ mean?\n\nMaster these two and you can keep any conversation going forever.",
                     ],
                 ],
             ],
@@ -197,7 +197,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'One swap. Hundreds of words.',
-                        'body_md' => "Any English word ending in **-tion** has a Spanish twin ending in **-ción**.\n\n- information → **información**\n- celebration → **celebración**\n- imagination → **imaginación**\n\nThree moves:\n1. Swap **-tion** → **-ción**\n2. Put an **accent** on the **ó**\n3. (That's it.)",
+                        'body_md' => "Any English word ending in **-tion** has a Spanish twin ending in **-ción**.\n\n- information → [[información|tts_cognate_informacion]]\n- celebration → [[celebración|tts_cognate_celebracion]]\n- imagination → [[imaginación|tts_cognate_imaginacion]]\n\nThree moves:\n1. Swap **-tion** → **-ción**\n2. Put an **accent** on the **ó**\n3. (That's it.)",
                     ],
                     [
                         'type' => 'callout',
@@ -207,7 +207,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'audio_demo',
                         'title' => 'Hear it',
-                        'body_md' => 'información · celebración · imaginación',
+                        'body_md' => '[[información|tts_cognate_informacion]] · [[celebración|tts_cognate_celebracion]] · [[imaginación|tts_cognate_imaginacion]]',
                         'audio_key' => 'demo_tion_cion',
                     ],
                 ],
@@ -222,12 +222,12 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Small adjustments',
-                        'body_md' => "Most -tion words convert cleanly. A few need a small tweak:\n\n- *station* → **estación** (Spanish adds an *e-* before *st-*: study → estudio, Spain → España)\n- *authorization* → **autorización** (the *th* drops to *t*)\n- *communication* → **comunicación** (double letters collapse to one: *mm* → *m*)",
+                        'body_md' => "Most -tion words convert cleanly. A few need a small tweak:\n\n- *station* → [[estación|tts_cognate_estacion]] (Spanish adds an *e-* before *st-*: study → estudio, Spain → España)\n- *authorization* → [[autorización|tts_cognate_autorizacion]] (the *th* drops to *t*)\n- *communication* → [[comunicación|tts_cognate_comunicacion]] (double letters collapse to one: *mm* → *m*)",
                     ],
                     [
                         'type' => 'callout',
                         'title' => 'The Rebel Words',
-                        'body_md' => "And three that refuse the pattern entirely. Catch them in this lesson and you earn them into your **Rebel Words** collection:\n\n- *translation* → **traducción** (not *translación*)\n- *explanation* → **explicación** (not *explanación*)\n- *vacation* → **vacaciones** (always plural in Spanish!)",
+                        'body_md' => "And three that refuse the pattern entirely. Catch them in this lesson and you earn them into your **Rebel Words** collection:\n\n- *translation* → [[traducción|tts_cognate_traduccion]] (not *translación*)\n- *explanation* → [[explicación|tts_cognate_explicacion]] (not *explanación*)\n- *vacation* → [[vacaciones|tts_cognate_vacaciones]] (always plural in Spanish!)",
                     ],
                 ],
             ],
@@ -241,7 +241,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Every -ción is feminine',
-                        'body_md' => "Every word that ends in *-ción* is grammatically **feminine**, so it always takes **la**.\n\n- **la** información\n- **la** estación\n- **la** conversación\n\nNo exceptions. Memorize the rule once and you are right hundreds of times.",
+                        'body_md' => "Every word that ends in *-ción* is grammatically **feminine**, so it always takes **la**.\n\n- **la** [[información|tts_cognate_informacion]]\n- **la** [[estación|tts_cognate_estacion]]\n- **la** [[conversación|tts_cognate_conversacion]]\n\nNo exceptions. Memorize the rule once and you are right hundreds of times.",
                     ],
                     [
                         'type' => 'audio_demo',
@@ -277,7 +277,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Memorize these. No shortcuts.',
-                        'body_md' => "0 cero · 1 uno · 2 dos · 3 tres · 4 cuatro · 5 cinco\n\n6 seis · 7 siete · 8 ocho · 9 nueve · 10 diez\n\n11 once · 12 doce · 13 trece · 14 catorce · 15 quince",
+                        'body_md' => "0 [[cero]] · 1 [[uno]] · 2 [[dos]] · 3 [[tres]] · 4 [[cuatro]] · 5 [[cinco]]\n\n6 [[seis]] · 7 [[siete]] · 8 [[ocho]] · 9 [[nueve]] · 10 [[diez]]\n\n11 [[once]] · 12 [[doce]] · 13 [[trece]] · 14 [[catorce]] · 15 [[quince]]",
                     ],
                 ],
             ],
@@ -291,7 +291,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'A handful of patterns',
-                        'body_md' => "**16–19** — *diez y seis* compresses to **dieciséis**, then *diecisiete, dieciocho, diecinueve*.\n\n**20s** — *veinte y uno* compresses to **veintiuno**, then *veintidós, veintitrés…*\n\n**30+** — Stays separated: **treinta y uno, treinta y dos…**\n\n**Tens** — treinta (30) · cuarenta (40) · cincuenta (50) · sesenta (60) · setenta (70) · ochenta (80) · noventa (90) · cien (100).",
+                        'body_md' => "**16–19** — *diez y seis* compresses to [[dieciséis]], then [[diecisiete]], [[dieciocho]], [[diecinueve]].\n\n**20s** — *veinte y uno* compresses to [[veintiuno]], then [[veintidós]], [[veintitrés]]…\n\n**30+** — Stays separated: [[treinta y uno]], [[treinta y dos]]…\n\n**Tens** — [[treinta]] (30) · [[cuarenta]] (40) · [[cincuenta]] (50) · [[sesenta]] (60) · [[setenta]] (70) · [[ochenta]] (80) · [[noventa]] (90) · [[cien]] (100).",
                     ],
                 ],
             ],
@@ -305,7 +305,7 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'Free words',
-                        'body_md' => "**Days** — lunes, martes, miércoles, jueves, viernes, sábado, domingo. *(Lowercase. Always.)*\n\n**Months** — enero, febrero, marzo, abril, mayo, junio, julio, agosto, septiembre, octubre, noviembre, diciembre. *(Lowercase. All near-cognates — basically free.)*\n\n**el lunes** = *on Monday*. Spanish uses *el* where English uses *on*.",
+                        'body_md' => "**Days** — [[lunes]], [[martes]], [[miércoles]], [[jueves]], [[viernes]], [[sábado]], [[domingo]]. *(Lowercase. Always.)*\n\n**Months** — [[enero]], [[febrero]], [[marzo]], [[abril]], [[mayo]], [[junio]], [[julio]], [[agosto]], [[septiembre]], [[octubre]], [[noviembre]], [[diciembre]]. *(Lowercase. All near-cognates — basically free.)*\n\n[[el lunes]] = *on Monday*. Spanish uses *el* where English uses *on*.",
                     ],
                 ],
             ],
@@ -319,12 +319,12 @@ class LessonSeeder extends Seeder
                     [
                         'type' => 'concept',
                         'title' => 'A chunk, not a rule',
-                        'body_md' => "*¿Qué hora es?* — What time is it?\n\n*Es la una.* — It's one o'clock.\n*Son las dos.* — It's two o'clock.\n\nDon't worry about *es* vs *son* — treat them as part of the chunk. *La una* uses *es*. Every other hour uses *son*. Done.",
+                        'body_md' => "[[¿Qué hora es?]] — What time is it?\n\n[[Es la una.]] — It's one o'clock.\n[[Son las dos.]] — It's two o'clock.\n\nDon't worry about *es* vs *son* — treat them as part of the chunk. *La una* uses *es*. Every other hour uses *son*. Done.",
                     ],
                     [
                         'type' => 'callout',
                         'title' => 'Halves and quarters',
-                        'body_md' => '*y media* — half past · *y cuarto* — quarter past · *de la mañana / tarde / noche* — AM/PM tag.',
+                        'body_md' => '[[y media]] — half past · [[y cuarto]] — quarter past · [[de la mañana]] / [[de la tarde]] / [[de la noche]] — AM/PM tag.',
                     ],
                 ],
             ],

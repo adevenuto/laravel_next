@@ -14,30 +14,68 @@ interface Props {
   targets: Target[]
   multiple: boolean
   submitLabel?: string
+  coaching?: string
 }
 
-const props = withDefaults(defineProps<Props>(), { submitLabel: 'Check' })
+const props = withDefaults(defineProps<Props>(), {
+  submitLabel: 'Next',
+  coaching: undefined,
+})
 const emit = defineEmits<{ complete: [result: ExerciseResult] }>()
 
 const selected = ref<Set<string>>(new Set())
 const settled = ref(false)
 const result = ref<{ correct: boolean; score: number } | null>(null)
+const coachingMessage = ref<string | null>(null)
+const wrongTriedIds = ref<Set<string>>(new Set())
+
+const defaultCoachSingle = 'Not quite — listen again and try a different tile.'
+const defaultCoachMulti = "Not that one — those aren't the silent letters here."
+
+const isPerfectSet = computed(() => {
+  for (const t of props.targets) {
+    if (selected.value.has(t.id) !== t.isAnswer) return false
+  }
+  return true
+})
 
 const canSubmit = computed(() => {
   if (settled.value) return false
-  if (!props.multiple) return selected.value.size === 1
-  return true
+  if (!props.multiple) return false
+  return isPerfectSet.value
 })
 
 function toggle(id: string) {
   if (settled.value) return
+  const target = props.targets.find((t) => t.id === id)
+  if (!target) return
+
   if (!props.multiple) {
+    if (target.isAnswer) {
+      selected.value = new Set([id])
+      settled.value = true
+      coachingMessage.value = null
+      result.value = { correct: true, score: 100 }
+      emit('complete', { correct: true, score: 100 })
+      return
+    }
+    // Mastery gate: wrong tap shows the wrong-on tint + coach, never commits.
+    // User must keep trying until they find the right tile.
     selected.value = new Set([id])
+    wrongTriedIds.value.add(id)
+    coachingMessage.value = props.coaching ?? defaultCoachSingle
     return
   }
+
   const next = new Set(selected.value)
-  if (next.has(id)) next.delete(id)
-  else next.add(id)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+    if (!target.isAnswer && coachingMessage.value === null) {
+      coachingMessage.value = props.coaching ?? defaultCoachMulti
+    }
+  }
   selected.value = next
 }
 
@@ -60,13 +98,20 @@ function submit() {
   })
 }
 
-function stateFor(t: Target): 'idle' | 'on' | 'correct' | 'missed' | 'wrong-on' {
-  if (!settled.value) {
-    return selected.value.has(t.id) ? 'on' : 'idle'
+function stateFor(t: Target): 'idle' | 'correct' | 'missed' | 'wrong-on' {
+  if (!props.multiple) {
+    if (settled.value && t.isAnswer) return 'correct'
+    if (wrongTriedIds.value.has(t.id)) return 'wrong-on'
+    return 'idle'
   }
-  if (t.isAnswer && selected.value.has(t.id)) return 'correct'
-  if (t.isAnswer && !selected.value.has(t.id)) return 'missed'
-  if (!t.isAnswer && selected.value.has(t.id)) return 'wrong-on'
+  const picked = selected.value.has(t.id)
+  if (!settled.value) {
+    if (!picked) return 'idle'
+    return t.isAnswer ? 'correct' : 'wrong-on'
+  }
+  if (t.isAnswer && picked) return 'correct'
+  if (t.isAnswer && !picked) return 'missed'
+  if (!t.isAnswer && picked) return 'wrong-on'
   return 'idle'
 }
 </script>
@@ -93,10 +138,10 @@ function stateFor(t: Target): 'idle' | 'on' | 'correct' | 'missed' | 'wrong-on' 
             'hover:-translate-y-0.5 active:translate-y-0',
             'disabled:cursor-not-allowed disabled:hover:translate-y-0',
             stateFor(t) === 'idle' && 'border-border bg-card text-foreground',
-            stateFor(t) === 'on' && 'border-primary bg-primary/15 text-foreground',
             stateFor(t) === 'correct' &&
               'border-success bg-success/15 text-foreground animate-correct-pop',
-            stateFor(t) === 'wrong-on' && 'border-coach bg-coach/15 text-foreground',
+            stateFor(t) === 'wrong-on' &&
+              'border-coach bg-coach/15 text-foreground animate-coach-nudge',
             stateFor(t) === 'missed' && 'border-dashed border-coach/70 bg-card text-foreground/60'
           )
         "
@@ -106,8 +151,12 @@ function stateFor(t: Target): 'idle' | 'on' | 'correct' | 'missed' | 'wrong-on' 
       </button>
     </div>
 
+    <p v-if="coachingMessage" class="coach-feedback text-sm">
+      {{ coachingMessage }}
+    </p>
+
     <button
-      v-if="!settled"
+      v-if="multiple && !settled"
       type="button"
       :disabled="!canSubmit"
       class="inline-flex h-12 w-full items-center justify-center rounded-soft bg-primary px-6 font-semibold text-primary-foreground transition-transform duration-quick ease-quick hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -117,10 +166,7 @@ function stateFor(t: Target): 'idle' | 'on' | 'correct' | 'missed' | 'wrong-on' 
     </button>
 
     <p v-if="result && result.correct" class="text-sm font-semibold text-success">
-      ¡Perfecto! All of them.
-    </p>
-    <p v-else-if="result && !result.correct" class="coach-feedback text-sm">
-      So close — review which were the right taps and try again next time.
+      ¡Eso es! Nice tap.
     </p>
   </div>
 </template>

@@ -71,7 +71,7 @@ watch(wordIndex, (i) => {
       :prompt="props.payload.prompt"
       :targets="targets"
       :multiple="true"
-      submit-label="Check"
+      submit-label="Next"
       @complete="onWordComplete"
     />
   </div>

@@ -41,9 +41,21 @@ const [b2Ref, b2Words] = useDragAndDrop<Word>([], { group })
 const bucketRefs = [b0Ref, b1Ref, b2Ref]
 const bucketLists = [b0Words, b1Words, b2Words]
 
+const anyMisplaced = computed(() => {
+  for (let i = 0; i < bucketDefs.value.length; i++) {
+    const bucketKey = bucketDefs.value[i].key
+    for (const word of bucketLists[i].value) {
+      if (word.bucket !== bucketKey) return true
+    }
+  }
+  return false
+})
+
 const canSubmit = computed(() => {
   if (settled.value) return false
-  return poolWords.value.length === 0
+  // Mastery gate: every word must be placed in its correct bucket. Pool empty
+  // alone is not enough — placements must also all match.
+  return poolWords.value.length === 0 && !anyMisplaced.value
 })
 
 function submit() {
@@ -115,10 +127,9 @@ function isCorrectPlacement(word: Word, bucketKey: string): boolean {
             :key="word.id"
             :class="
               cn(
-                'es cursor-grab select-none rounded-soft border-2 px-3 py-2 text-base font-semibold shadow-raised text-left',
-                settled && isCorrectPlacement(word, bucket.key) && 'border-success bg-success/10',
-                settled && !isCorrectPlacement(word, bucket.key) && 'border-coach bg-coach/10',
-                !settled && 'border-border bg-card'
+                'es cursor-grab select-none rounded-soft border-2 px-3 py-2 text-base font-semibold shadow-raised text-left transition-colors duration-quick',
+                isCorrectPlacement(word, bucket.key) && 'border-success bg-success/10',
+                !isCorrectPlacement(word, bucket.key) && 'border-coach bg-coach/10'
               )
             "
           >
@@ -159,6 +170,10 @@ function isCorrectPlacement(word: Word, bucketKey: string): boolean {
       </div>
     </div>
 
+    <p v-if="!settled && anyMisplaced" class="coach-feedback text-sm">
+      Not quite — some words are in the wrong rule bucket. Drag them out and try again.
+    </p>
+
     <button
       v-if="!settled"
       type="button"
@@ -166,14 +181,11 @@ function isCorrectPlacement(word: Word, bucketKey: string): boolean {
       class="inline-flex h-12 w-full items-center justify-center rounded-soft bg-primary px-6 font-semibold text-primary-foreground transition-transform duration-quick ease-quick hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       @click="submit"
     >
-      Check
+      Next
     </button>
 
     <p v-if="settled && wasCorrect" class="text-sm font-semibold text-success">
-      All sorted! {{ score }}/100.
-    </p>
-    <p v-else-if="settled && !wasCorrect" class="coach-feedback text-sm">
-      {{ score }}/100 — review which words came back to the wrong rule.
+      All sorted! ¡Eso es!
     </p>
   </div>
 </template>

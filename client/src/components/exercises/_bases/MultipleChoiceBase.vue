@@ -17,15 +17,23 @@ interface Props {
   correctValue: V
   promptAudioKey?: string
   coaching?: string
+  requirePerfect?: boolean
   playPromptAudio?: (key: string) => void
   playOptionAudio?: (key: string) => void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  promptAudioKey: undefined,
+  coaching: undefined,
+  requirePerfect: false,
+  playPromptAudio: undefined,
+  playOptionAudio: undefined,
+})
 const emit = defineEmits<{ complete: [result: ExerciseResult] }>()
 
 const chosenValue = ref<V | null>(null)
 const lastTriedValue = ref<V | null>(null)
+const wrongTriedKeys = ref<Set<string>>(new Set())
 const settled = ref(false)
 const coachingMessage = ref<string | null>(null)
 
@@ -40,23 +48,36 @@ function choose(value: V) {
     settled.value = true
     coachingMessage.value = null
     emit('complete', { correct: true, score: 100 })
+    return
+  }
+
+  // Mastery gate: any wrong tap shows the coach + persistent wrong-on tint and waits
+  // for the user to try a different option. Never commits.
+  if (props.requirePerfect) {
+    wrongTriedKeys.value.add(String(value))
+    coachingMessage.value = props.coaching ?? 'Not quite — listen again and try a different one.'
+    return
+  }
+
+  // Legacy single-retry: first wrong → coach, allow one retry. Second wrong → record.
+  if (coachingMessage.value === null) {
+    coachingMessage.value = props.coaching ?? 'Not quite — listen again, then try once more.'
   } else {
-    // First wrong → coach, allow one retry. Second wrong → record and continue.
-    if (coachingMessage.value === null) {
-      coachingMessage.value = props.coaching ?? 'Not quite — listen again, then try once more.'
-    } else {
-      chosenValue.value = value
-      settled.value = true
-      emit('complete', { correct: false, score: 0, meta: { last_tried: String(value) } })
-    }
+    chosenValue.value = value
+    settled.value = true
+    emit('complete', { correct: false, score: 0, meta: { last_tried: String(value) } })
   }
 }
 
 function stateFor(value: V): 'idle' | 'correct' | 'coach' {
+  if (settled.value && value === props.correctValue) return 'correct'
+  if (props.requirePerfect) {
+    if (wrongTriedKeys.value.has(String(value))) return 'coach'
+    return 'idle'
+  }
   if (!settled.value && lastTriedValue.value === value && coachingMessage.value !== null) {
     return 'coach'
   }
-  if (settled.value && value === props.correctValue) return 'correct'
   return 'idle'
 }
 

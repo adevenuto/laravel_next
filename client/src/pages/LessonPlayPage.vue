@@ -11,6 +11,8 @@ import { audioKey } from '@/composables/audioInjection'
 import LessonResults from '@/pages/LessonPlayPage.results.vue'
 import ConfettiBurst from '@/components/ConfettiBurst.vue'
 import UnitRewardBurst from '@/components/UnitRewardBurst.vue'
+import TeachBody from '@/components/TeachBody.vue'
+import { parseTeachMarkdown } from '@/lib/parseTeachMarkdown'
 import type { ExerciseResult, LessonCompleteResponse } from '@/types/domain'
 
 const route = useRoute()
@@ -36,8 +38,8 @@ provide(audioKey, audio)
 const teachScreens = computed(() => lessonStore.current?.lesson.teach_screens ?? [])
 const teachScreen = computed(() => teachScreens.value[teachIndex.value] ?? null)
 const totalTeach = computed(() => teachScreens.value.length)
-const renderedBody = computed(() =>
-  teachScreen.value ? renderMarkdown(teachScreen.value.body_md) : ''
+const teachBlocks = computed(() =>
+  teachScreen.value ? parseTeachMarkdown(teachScreen.value.body_md) : []
 )
 
 // Defensive fallback for unregistered exercise components. Auto-completes so a
@@ -131,21 +133,13 @@ function goNext() {
   }
 }
 
-// Minimal Markdown renderer for teach_screens body_md. Phase 2 keeps it tight:
-// **bold**, *italic*, simple bullet lists, paragraph breaks. Heavy enough for
-// the seeded content — a real markdown-it install is overkill at this phase.
-function renderMarkdown(input: string): string {
-  if (!input) return ''
-  let s = input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-  s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>')
-  s = s.replace(/(^|\n)-\s+(.+)/g, '$1<li>$2</li>')
-  s = s.replace(/(<li>[\s\S]+?<\/li>)/g, '<ul class="list-disc pl-6 space-y-1 my-2">$1</ul>')
-  s = s
-    .split(/\n\n+/)
-    .map((para) => (para.startsWith('<ul') ? para : `<p>${para.replace(/\n/g, '<br />')}</p>`))
-    .join('')
-  return s
+async function retry() {
+  lessonStore.reset()
+  teachIndex.value = 0
+  completionResponse.value = null
+  showLessonConfetti.value = false
+  showUnitReward.value = false
+  await init()
 }
 
 onMounted(init)
@@ -194,8 +188,7 @@ watch(slug, () => {
         <h1 class="font-display text-3xl font-semibold leading-tight">
           {{ teachScreen.title }}
         </h1>
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <div class="es text-lg leading-relaxed text-foreground/90" v-html="renderedBody" />
+        <TeachBody class="es text-lg leading-relaxed text-foreground/90" :blocks="teachBlocks" />
       </article>
 
       <div class="flex gap-2">
@@ -249,6 +242,7 @@ watch(slug, () => {
       :results="lessonStore.results"
       :completion="completionResponse"
       @next="goNext"
+      @retry="retry"
     />
 
     <!-- Per-lesson confetti rain — fires on every results screen. -->
