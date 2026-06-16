@@ -30,6 +30,8 @@ const completionResponse = ref<LessonCompleteResponse | null>(null)
 const showLessonConfetti = ref(false)
 // Sunburst-and-sparks fires additionally when a unit reward lands.
 const showUnitReward = ref(false)
+// Vocab counter at the moment the unit reward fires — the NumberRoll starts here.
+const vocabBefore = ref(0)
 
 const slug = computed(() => String(route.params.slug))
 const audio = useAudio(slug.value)
@@ -102,6 +104,10 @@ async function onExerciseComplete(result: ExerciseResult) {
   await lessonStore.recordResult(ex.id, result)
 
   if (lessonStore.isLastExercise) {
+    // Snapshot vocab_counter BEFORE complete() / fetch() reconciles with the
+    // server's post-reward value. This is the NumberRoll's starting point.
+    vocabBefore.value = userStore.profile?.vocab_counter ?? 0
+
     completionResponse.value = await lessonStore.complete(slug.value)
     levelMapStore.invalidate()
     await levelMapStore.fetch(1, true)
@@ -241,6 +247,7 @@ watch(slug, () => {
       :lesson-title="lessonStore.current.lesson.title"
       :results="lessonStore.results"
       :completion="completionResponse"
+      :vocab-before="vocabBefore"
       @next="goNext"
       @retry="retry"
     />

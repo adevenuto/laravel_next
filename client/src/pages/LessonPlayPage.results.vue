@@ -2,15 +2,17 @@
 import { computed } from 'vue'
 import { CheckCircle2, RotateCcw, Sparkles } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
+import NumberRoll from '@/components/NumberRoll.vue'
 import type { ExerciseResult, LessonCompleteResponse } from '@/types/domain'
 
 interface Props {
   lessonTitle: string
   results: Array<{ exerciseId: number; result: ExerciseResult }>
   completion: LessonCompleteResponse | null
+  vocabBefore?: number
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { vocabBefore: 0 })
 const emit = defineEmits<{ next: []; retry: [] }>()
 
 const correctCount = computed(() => props.results.filter((r) => r.result.correct).length)
@@ -34,6 +36,9 @@ const ctaLabel = computed(() => {
 })
 
 const hasReward = computed(() => Boolean(props.completion?.reward?.was_new))
+const vocabDelta = computed(() => props.completion?.reward?.vocab_delta ?? 0)
+const showVocabHero = computed(() => hasReward.value && vocabDelta.value > 0)
+const vocabAfter = computed(() => props.vocabBefore + vocabDelta.value)
 
 // Promote "Try again" to primary visual weight when score is imperfect so the
 // invitation to practice reads as the obvious next step. At 100% the next/dashboard
@@ -74,6 +79,22 @@ const isPerfect = computed(() => percent.value === 100)
           :class="cn('h-2.5 w-8 rounded-pill', r.result.correct ? 'bg-success' : 'bg-coach/60')"
         />
       </div>
+    </div>
+
+    <!-- Vocab counter hero — the +400 moment. -->
+    <div
+      v-if="showVocabHero"
+      class="sunlit-card p-8 space-y-2 text-center border-2 border-primary/40"
+    >
+      <p class="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+        Spanish vocabulary
+      </p>
+      <div class="numeric-display text-6xl text-primary">
+        <NumberRoll :from="vocabBefore" :to="vocabAfter" />
+      </div>
+      <p class="text-sm font-semibold text-success">
+        +{{ vocabDelta }} words you can produce today.
+      </p>
     </div>
 
     <!-- Reward fired? -->

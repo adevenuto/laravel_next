@@ -21,6 +21,23 @@ vi.mock('@/lib/lessonsApi', () => ({
   completeLesson: vi.fn(),
 }))
 
+const toggleCompleteAllMock = vi.fn().mockResolvedValue({
+  state: 'unlocked',
+  completed_count: 18,
+  xp_total: 0,
+  vocab_total: 0,
+})
+const resetProgressMock = vi.fn().mockResolvedValue({
+  state: 'normal',
+  reset: true,
+  xp_total: 0,
+  vocab_total: 0,
+})
+vi.mock('@/lib/devApi', () => ({
+  toggleCompleteAll: () => toggleCompleteAllMock(),
+  resetProgress: () => resetProgressMock(),
+}))
+
 const stubMap: LevelMapResponse = {
   level: {
     id: 1,
@@ -86,6 +103,7 @@ const stubProfile: MeProfile = {
   streak: { count: 0, last_active_date: null },
   badges: [],
   feature_flags: {},
+  dev_snapshot_present: false,
 }
 
 function mountDash() {
@@ -159,5 +177,72 @@ describe('DashboardPage', () => {
     await lockedBtn.trigger('click')
 
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it('renders both DEV-UNLOCK pills alongside the existing DEV-CONFETTI pills', async () => {
+    const { wrapper } = mountDash()
+    await wrapper.vm.$nextTick()
+
+    const buttonTexts = wrapper.findAll('button').map((b) => b.text())
+    expect(buttonTexts.some((t) => t.includes('DEV · Lesson confetti'))).toBe(true)
+    expect(buttonTexts.some((t) => t.includes('DEV · Unit reward burst'))).toBe(true)
+    expect(buttonTexts.some((t) => t.includes('DEV · Mark all complete'))).toBe(true)
+    expect(buttonTexts.some((t) => t.includes('DEV · Reset progress'))).toBe(true)
+  })
+
+  it('shows "Mark all complete" when dev_snapshot_present is false', async () => {
+    const { wrapper } = mountDash()
+    await wrapper.vm.$nextTick()
+
+    const buttonTexts = wrapper.findAll('button').map((b) => b.text())
+    expect(buttonTexts.some((t) => t.includes('DEV · Mark all complete'))).toBe(true)
+    expect(buttonTexts.some((t) => t.includes('DEV · Restore my progress'))).toBe(false)
+  })
+
+  it('shows "Restore my progress" when dev_snapshot_present is true', async () => {
+    const pinia = createTestingPinia({ createSpy: vi.fn })
+    const wrapper = mount(DashboardPage, {
+      global: { plugins: [pinia], stubs: { Transition: false } },
+    })
+    const levelMap = useLevelMapStore()
+    const me = useUserStore()
+    levelMap.map = stubMap
+    levelMap.isLoading = false
+    me.profile = { ...stubProfile, dev_snapshot_present: true }
+    await wrapper.vm.$nextTick()
+
+    const buttonTexts = wrapper.findAll('button').map((b) => b.text())
+    expect(buttonTexts.some((t) => t.includes('DEV · Restore my progress'))).toBe(true)
+    expect(buttonTexts.some((t) => t.includes('DEV · Mark all complete'))).toBe(false)
+  })
+
+  it('DEV · Mark all complete calls devApi.toggleCompleteAll and triggers a map + me refetch', async () => {
+    toggleCompleteAllMock.mockClear()
+    const { wrapper, levelMap, me } = mountDash()
+    await wrapper.vm.$nextTick()
+
+    const unlockBtn = wrapper.findAll('button').find((b) => b.text().includes('Mark all complete'))!
+    await unlockBtn.trigger('click')
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(toggleCompleteAllMock).toHaveBeenCalledTimes(1)
+    expect(levelMap.invalidate).toHaveBeenCalled()
+    expect(levelMap.fetch).toHaveBeenCalledWith(1, true)
+    expect(me.fetch).toHaveBeenCalled()
+  })
+
+  it('DEV · Reset progress calls devApi.resetProgress and triggers a map + me refetch', async () => {
+    resetProgressMock.mockClear()
+    const { wrapper, levelMap, me } = mountDash()
+    await wrapper.vm.$nextTick()
+
+    const resetBtn = wrapper.findAll('button').find((b) => b.text().includes('Reset progress'))!
+    await resetBtn.trigger('click')
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(resetProgressMock).toHaveBeenCalledTimes(1)
+    expect(levelMap.invalidate).toHaveBeenCalled()
+    expect(levelMap.fetch).toHaveBeenCalledWith(1, true)
+    expect(me.fetch).toHaveBeenCalled()
   })
 })

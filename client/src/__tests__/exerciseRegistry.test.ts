@@ -16,9 +16,17 @@ const UNIT_1_1_COMPONENT_NAMES = [
   'RuleSort',
 ] as const
 
+const UNIT_1_4_COMPONENT_NAMES = [
+  'WordForge',
+  'AccentPlacer',
+  'ChooseTheReal',
+  'TrapOrTreat',
+  'ArticleAttach',
+] as const
+
 describe('exerciseRegistry', () => {
-  it.each([...UNIT_1_1_COMPONENT_NAMES])(
-    'resolves Unit 1.1 component "%s" to a non-null component',
+  it.each([...UNIT_1_1_COMPONENT_NAMES, ...UNIT_1_4_COMPONENT_NAMES])(
+    'resolves component "%s" to a non-null component',
     (name) => {
       expect(isRegistered(name)).toBe(true)
       expect(resolveExerciseComponent(name)).not.toBeNull()
@@ -32,15 +40,15 @@ describe('exerciseRegistry', () => {
 
   it('exposes every registered name through registeredComponentNames', () => {
     const names = registeredComponentNames()
-    for (const expected of UNIT_1_1_COMPONENT_NAMES) {
+    for (const expected of [...UNIT_1_1_COMPONENT_NAMES, ...UNIT_1_4_COMPONENT_NAMES]) {
       expect(names).toContain(expected)
     }
   })
 
-  // Locked behind `it.skip` until Phase 4 ships the remaining components from
-  // ExerciseSeeder.php. Enables the full coverage check then.
+  // Locked behind `it.skip` until Phase 4 ships the remaining Unit 1.2/1.3/1.5
+  // components from ExerciseSeeder.php.
   it.skip('(future) resolves every component name found in ExerciseSeeder.php', () => {
     // Phase 4 task: import the full list of seeded component names and
-    // assert each one resolves. Until then, scope is Unit 1.1 only.
+    // assert each one resolves. Until then, scope is Unit 1.1 + 1.4.
   })
 })

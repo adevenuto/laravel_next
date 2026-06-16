@@ -25,4 +25,9 @@ export interface MeProfile {
   streak: Streak
   badges: Badge[]
   feature_flags: FeatureFlags
+  /** DEV-UNLOCK: true when the dev "Mark all complete" toggle is currently in
+   *  its unlocked state (a snapshot of the user's real progress is stored on
+   *  the user row, waiting to be restored). Not present in production responses
+   *  in any meaningful way — the endpoints are gated to local/testing. */
+  dev_snapshot_present: boolean
 }

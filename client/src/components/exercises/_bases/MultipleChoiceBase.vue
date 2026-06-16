@@ -17,6 +17,13 @@ interface Props {
   correctValue: V
   promptAudioKey?: string
   coaching?: string
+  /**
+   * Per-option coach overrides keyed by `String(option.value)`. When a user picks
+   * a wrong option whose key is in this map, the message wins over the generic
+   * `coaching` default. Used by ChooseTheReal to surface the seeded `why_wrong`
+   * coach prose per distractor.
+   */
+  coachingPerValue?: Record<string, string>
   requirePerfect?: boolean
   playPromptAudio?: (key: string) => void
   playOptionAudio?: (key: string) => void
@@ -25,10 +32,16 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   promptAudioKey: undefined,
   coaching: undefined,
+  coachingPerValue: undefined,
   requirePerfect: false,
   playPromptAudio: undefined,
   playOptionAudio: undefined,
 })
+
+function coachFor(value: V, fallback: string): string {
+  const perValue = props.coachingPerValue?.[String(value)]
+  return perValue ?? props.coaching ?? fallback
+}
 const emit = defineEmits<{ complete: [result: ExerciseResult] }>()
 
 const chosenValue = ref<V | null>(null)
@@ -55,13 +68,13 @@ function choose(value: V) {
   // for the user to try a different option. Never commits.
   if (props.requirePerfect) {
     wrongTriedKeys.value.add(String(value))
-    coachingMessage.value = props.coaching ?? 'Not quite — listen again and try a different one.'
+    coachingMessage.value = coachFor(value, 'Not quite — listen again and try a different one.')
     return
   }
 
   // Legacy single-retry: first wrong → coach, allow one retry. Second wrong → record.
   if (coachingMessage.value === null) {
-    coachingMessage.value = props.coaching ?? 'Not quite — listen again, then try once more.'
+    coachingMessage.value = coachFor(value, 'Not quite — listen again, then try once more.')
   } else {
     chosenValue.value = value
     settled.value = true

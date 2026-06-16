@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Flame, Lock, PartyPopper, Sparkles, Trophy, Zap } from 'lucide-vue-next'
+import {
+  Eraser,
+  Flame,
+  KeyRound,
+  Lock,
+  PartyPopper,
+  Sparkles,
+  Trophy,
+  Undo2,
+  Zap,
+} from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { useLevelMapStore } from '@/stores/levelMap'
 import { useUserStore } from '@/stores/me'
 import ConfettiBurst from '@/components/ConfettiBurst.vue'
 import UnitRewardBurst from '@/components/UnitRewardBurst.vue'
+import * as devApi from '@/lib/devApi'
 import type { LessonSummary } from '@/types/domain'
 
 const route = useRoute()
@@ -21,6 +32,58 @@ const showLockedToast = ref(route.query.coach === 'locked')
 // want to preview the celebrations. Marked with DEV-CONFETTI for easy grep.
 const showDevConfetti = ref(false)
 const showDevUnitReward = ref(false)
+
+// DEV-UNLOCK: temporary play-through shortcuts. Marked DEV-UNLOCK for cleanup.
+const devStatus = ref<string | null>(null)
+const devBusy = ref(false)
+
+const isUnlockedState = computed(() => Boolean(me.profile?.dev_snapshot_present))
+
+async function devToggleUnlock() {
+  if (devBusy.value) return
+  devBusy.value = true
+  try {
+    const res = await devApi.toggleCompleteAll()
+    // eslint-disable-next-line no-console
+    console.debug('[DEV-UNLOCK] toggle response', res)
+    levelMap.invalidate()
+    await Promise.all([levelMap.fetch(1, true), me.fetch()])
+    // eslint-disable-next-line no-console
+    console.debug(
+      '[DEV-UNLOCK] post-refetch map first-unit lock states',
+      levelMap.units[0]?.lessons.map((l) => `${l.slug}=${l.lock_state}`)
+    )
+    flashStatus(res.state === 'unlocked' ? 'Unlocked.' : 'Progress restored.')
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[DEV-UNLOCK] toggle failed', err)
+    flashStatus('Toggle FAILED — see console')
+  } finally {
+    devBusy.value = false
+  }
+}
+
+async function devReset() {
+  if (devBusy.value) return
+  devBusy.value = true
+  try {
+    await devApi.resetProgress()
+    levelMap.invalidate()
+    await Promise.all([levelMap.fetch(1, true), me.fetch()])
+    flashStatus('Reset.')
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[DEV-UNLOCK] reset failed', err)
+    flashStatus('Reset FAILED — see console')
+  } finally {
+    devBusy.value = false
+  }
+}
+
+function flashStatus(label: string) {
+  devStatus.value = label
+  setTimeout(() => (devStatus.value = null), 2500)
+}
 
 onMounted(async () => {
   await Promise.all([levelMap.fetch(1), me.fetch()])
@@ -140,6 +203,41 @@ function firstNameOrYou() {
           <PartyPopper class="h-3.5 w-3.5" />
           DEV · Unit reward burst
         </button>
+
+        <!-- DEV-UNLOCK: play-through shortcuts. Backend is env-gated to local/testing.
+             The toggle snapshots real progress into users.progress_snapshot when
+             unlocking, and restores from it on the next click. -->
+        <button
+          type="button"
+          :disabled="devBusy"
+          :class="[
+            'inline-flex items-center gap-1.5 self-start rounded-pill border border-dashed px-3 py-1 text-xs font-semibold transition-transform duration-quick ease-quick hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0',
+            isUnlockedState
+              ? 'border-primary/60 bg-primary/10 text-foreground'
+              : 'border-success/60 bg-success/10 text-foreground',
+          ]"
+          @click="devToggleUnlock"
+        >
+          <component :is="isUnlockedState ? Undo2 : KeyRound" class="h-3.5 w-3.5" />
+          {{ isUnlockedState ? 'DEV · Restore my progress' : 'DEV · Mark all complete' }}
+        </button>
+        <button
+          type="button"
+          :disabled="devBusy"
+          class="inline-flex items-center gap-1.5 self-start rounded-pill border border-dashed border-muted-foreground/60 bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground transition-transform duration-quick ease-quick hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          @click="devReset"
+        >
+          <Eraser class="h-3.5 w-3.5" />
+          DEV · Reset progress
+        </button>
+
+        <span
+          v-if="devStatus"
+          class="self-start text-xs font-semibold text-success px-2 py-1"
+          role="status"
+        >
+          {{ devStatus }}
+        </span>
       </div>
     </header>
 

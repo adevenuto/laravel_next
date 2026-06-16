@@ -23,6 +23,7 @@ class User extends Authenticatable
         'vocab_counter',
         'streak_count',
         'streak_last_active_date',
+        'progress_snapshot',
     ];
 
     protected $hidden = [
@@ -39,6 +40,7 @@ class User extends Authenticatable
             'xp' => 'integer',
             'vocab_counter' => 'integer',
             'streak_count' => 'integer',
+            'progress_snapshot' => 'array',
         ];
     }
 

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\DevProgressController;
 use App\Http\Controllers\ExerciseAttemptController;
 use App\Http\Controllers\LessonCompleteController;
 use App\Http\Controllers\LessonController;
@@ -39,3 +40,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // boss dialogue interpolation.
     Route::post('/profile/onboarding', [ProfileController::class, 'onboarding']);
 });
+
+// DEV-UNLOCK: play-through testing shortcuts. Only registered when running
+// locally or in tests; production builds don't see these endpoints at all.
+if (app()->environment('local', 'testing')) {
+    Route::middleware('auth:sanctum')->prefix('dev')->group(function () {
+        Route::post('/progress/toggle-complete-all', [DevProgressController::class, 'toggleCompleteAll']);
+        Route::post('/progress/reset', [DevProgressController::class, 'reset']);
+    });
+}

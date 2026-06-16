@@ -92,5 +92,49 @@ describe('MultipleChoiceBase', () => {
       expect(aBtn.classes().join(' ')).toMatch(/border-coach/)
       expect(iBtn.classes().join(' ')).toMatch(/border-coach/)
     })
+
+    it('uses coachingPerValue override on a wrong tap when the value key matches', async () => {
+      const wrapper = mount(MultipleChoiceBase, {
+        props: {
+          prompt: 'Tap the vowel',
+          options,
+          correctValue: 'e',
+          requirePerfect: true,
+          coaching: 'Generic coach default.',
+          coachingPerValue: { a: 'Missing accent.', i: 'Wrong sound entirely.' },
+        },
+      })
+
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'a')!
+        .trigger('click')
+      expect(wrapper.text()).toContain('Missing accent.')
+      expect(wrapper.text()).not.toContain('Generic coach default.')
+
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'i')!
+        .trigger('click')
+      expect(wrapper.text()).toContain('Wrong sound entirely.')
+    })
+
+    it('falls back to generic coach default when no per-value key matches', async () => {
+      const wrapper = mount(MultipleChoiceBase, {
+        props: {
+          prompt: 'Tap the vowel',
+          options,
+          correctValue: 'e',
+          requirePerfect: true,
+          coachingPerValue: { a: 'Missing accent.' },
+        },
+      })
+      // 'i' is not in coachingPerValue → falls through to the generic default.
+      await wrapper
+        .findAll('button[type="button"]')
+        .find((b) => b.text() === 'i')!
+        .trigger('click')
+      expect(wrapper.text()).toMatch(/Not quite/i)
+    })
   })
 })

@@ -35,6 +35,7 @@ class MeResource extends JsonResource
             ],
             'badges' => $this->badges($user),
             'feature_flags' => $this->flags($user),
+            'dev_snapshot_present' => $user->progress_snapshot !== null,
         ];
     }
 

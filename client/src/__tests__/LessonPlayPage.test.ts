@@ -126,4 +126,38 @@ describe('LessonPlayPage.results', () => {
     const nextCta = wrapper.findAll('button').find((b) => b.text().includes('Next lesson'))!
     expect(nextCta.classes().join(' ')).toMatch(/bg-primary/)
   })
+
+  it('renders the vocab hero with NumberRoll when reward.was_new && vocab_delta > 0', () => {
+    const wrapper = mount(LessonResults, {
+      props: {
+        lessonTitle: 'Guess Mode',
+        results: [{ exerciseId: 1, result: { correct: true, score: 100 } }],
+        vocabBefore: 10,
+        completion: {
+          next_lesson_slug: null,
+          reward: {
+            was_new: true,
+            badge_key: 'the_alchemist',
+            vocab_delta: 400,
+            feature_flag: null,
+          },
+        } as never,
+      },
+    })
+
+    expect(wrapper.text()).toContain('Spanish vocabulary')
+    expect(wrapper.text()).toContain('+400 words you can produce today.')
+  })
+
+  it('does NOT render the vocab hero when no reward fires', () => {
+    const wrapper = mount(LessonResults, {
+      props: {
+        ...baseProps,
+        results: [{ exerciseId: 1, result: { correct: true, score: 100 } }],
+        vocabBefore: 10,
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('Spanish vocabulary')
+  })
 })

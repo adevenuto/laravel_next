@@ -476,3 +476,59 @@ Build doc §2 says: *"Speech recognition (Web Speech API) is used ONLY for the o
 - **`audio:generate` artisan command + Google TTS driver** — Phase 6. Until then every exercise runs through `NullTtsHowl`.
 - **PWA** — Phase 6.
 
+---
+
+## Phase 3 — WordForge & Unit 1.4 (the north-star)
+
+### WordForge interaction contract (locked)
+
+`WordForge.vue` uses **strict-prefix per-letter validation**. Each typed character is matched against `expected[i]`; the first mismatch shows the seeded `tweak_note` (or a generic coach line) and blocks advance until the user backspaces and corrects. There is no "Check" button — completion fires automatically when `typed === expected`. Mastery-gate consistent with the Phase 2.5 convention (`feedback_instant_feedback_convention.md`).
+
+The T→C sparkle uses GSAP and respects `prefers-reduced-motion`. The forge animation is a scale-yoyo on the card; the box-shadow tween that DECISIONS.md previously drafted was dropped because GSAP can't parse `hsl(var(--primary))` CSS-variable color strings in jsdom (the test-runner). Visual moment lives in the scale + the `border-success` swap.
+
+### Attempt-meta extensions (canonical for Phase 4+)
+
+`POST /api/exercises/{id}/attempt` now accepts two optional fields under `meta`:
+
+- **`meta.rebels_captured: string[]`** — up to 10 rebel_word_key strings. Backend inserts each into `user_collections` with `collectible_type='rebel_word'` via `App\Services\RebelCollectionService::capture`. Idempotent via the unique `(user_id, type, key)` constraint. Response includes `rebels_captured` = the keys newly added on this attempt (already-collected keys are silently skipped).
+- **`meta.vocab_delta: int`** (0–10) — increments `users.vocab_counter` server-side in the same transaction as xp + SRS. Response includes `vocab_total`.
+
+Both writes are bounded (max 10 keys, max delta 10) to prevent client-side abuse via a tampered attempt POST. Future exercises (Boss style bonuses, Toolbox unlocks, …) should funnel through these meta fields rather than minting new endpoints.
+
+### NumberRoll primitive
+
+`client/src/components/NumberRoll.vue` is the project's number-animation primitive. Props: `from`, `to`, `durationMs?` (default 1800), `format?` (default `n.toLocaleString('en-US')`). GSAP-driven, snaps to `to` under `prefers-reduced-motion`. Used now for the +400 hero on the results screen; reusable for streak / XP / future Toolbox counters.
+
+### Conflict 16 — ArticleAttach uses tap-to-select, not drag-and-drop
+
+Build doc §4 (Unit 1.4) describes ArticleAttach as "drag *la* onto -ción nouns mixed with *el* decoys." The seeded prompt also says "Drag the right article onto each noun."
+
+**Implemented as tap-to-select.** Tap an article to "arm" it, tap nouns to assign. Mastery-gate: Next stays disabled until every noun has the correct article assigned. Misassignments can be re-tapped to change.
+
+**Why deviate:** `@formkit/drag-and-drop`'s `useDragAndDrop` is a Vue composable and can't be called in a `v-for` loop (Composition API rule against conditional/loop composable invocation). With 8 noun targets per round + 2 source tokens, the implementation would need 10 hard-coded `useDragAndDrop` calls plus custom clone-on-drag logic so each `la`/`el` source could be dropped onto multiple targets. The tap-to-select interaction lands the same pedagogical beat (pick the right article for each noun, get instant feedback per assignment, must be 100% to advance) with a fraction of the code, better keyboard accessibility, and trivially testable in jsdom.
+
+**Resolution:** ArticleAttach ships with tap-to-select. The seeded `prompt` text still says "Drag" — left as-is rather than re-seeding because the component's own subtitle reads "Tap an article to arm it, then tap each noun." If user-facing wording feels off in a play-through, the prompt is a one-line seed update.
+
+### Dev tooling pattern (Phase 3.5 — dev unlock toggle)
+
+Two dev-only progress shortcuts ship on the dashboard alongside the existing DEV-CONFETTI pills:
+
+- **DEV · Mark all complete ↔ Restore my progress** → `POST /api/dev/progress/toggle-complete-all` — a real toggle. When the user's `progress_snapshot` JSON column is null, the controller snapshots the current `UserLessonProgress` rows into the column and then bulk-completes every lesson. When the column is populated, the controller restores the snapshotted rows verbatim and nulls the column. Round-trip from any starting state is idempotent.
+  - The bulk completion writes `UserLessonProgress` rows directly (bypasses `ProgressService::complete`) so no unit rewards fire on the unlock — `the_alchemist` etc. stay testable later via Reset + play-through.
+  - The button label + icon swap server-side via `MeResource::dev_snapshot_present`. After a page reload the toggle still shows the right state.
+- **DEV · Reset progress** → `POST /api/dev/progress/reset` — wipes `user_lesson_progress`, `user_collections`, `user_skill_mastery`, `user_boss_attempts` for the current user and zeros `xp`/`vocab_counter`/`streak_count` AND clears `progress_snapshot`. Preserves `display_name` + `hometown` (user-set profile, not progress).
+
+**Schema:** `users.progress_snapshot` is a nullable JSON column added by `2026_06_16_000000_add_progress_snapshot_to_users.php`. Casts as array on the model. Production builds never write to it — the toggle endpoint is gated.
+
+**Backend gating:** the route group registration in `backend/routes/api.php` is wrapped in `if (app()->environment('local', 'testing'))`. In production the routes don't exist at all — `route:list` returns nothing under `dev/*`. This establishes the project pattern for env-gated dev endpoints; reuse `app()->environment('local', 'testing')` for any future ones.
+
+**Frontend cleanup:** the buttons are unconditional in the template, marked with the `DEV-UNLOCK` grep tag (parallels `DEV-CONFETTI`). Remove before any prod cut by searching `DEV-UNLOCK` and stripping the pills + handlers + the `devApi.ts` import + the `dev_snapshot_present` field from `MeProfile`. The migration / column can stay (zero overhead when nothing writes to it).
+
+### What Phase 3 deliberately did NOT do
+
+- **Drag-and-drop in ArticleAttach** — see Conflict 16. Tap-to-select instead.
+- **Per-keystroke forge audio** — WordForge only plays audio on full completion. Per-letter audio would clutter and isn't in the build doc spec.
+- **Toolbox view of Rebel Words** — Phase 4. The collection rows exist server-side after this phase; viewing them lives with the rest of Toolbox.
+- **Backend-driven feature flags** — `RewardService::flagsFor` still computes from earned badges; no new flags introduced (Unit 1.4 has no flag — the +400 is the reward).
+- **NullTtsHowl swap** — Phase 6's `audio:generate` is still where real sprites land; today's WordForge / AccentPlacer / TrapOrTreat audio still routes through SpeechSynthesis.
+

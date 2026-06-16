@@ -16,6 +16,13 @@ const registry: Record<string, () => Promise<Component>> = {
   StressTap: () => import('@/components/exercises/StressTap.vue'),
   AccentDetective: () => import('@/components/exercises/AccentDetective.vue'),
   RuleSort: () => import('@/components/exercises/RuleSort.vue'),
+
+  // Unit 1.4 — wired in Phase 3.
+  WordForge: () => import('@/components/exercises/WordForge.vue'),
+  AccentPlacer: () => import('@/components/exercises/AccentPlacer.vue'),
+  ChooseTheReal: () => import('@/components/exercises/ChooseTheReal.vue'),
+  TrapOrTreat: () => import('@/components/exercises/TrapOrTreat.vue'),
+  ArticleAttach: () => import('@/components/exercises/ArticleAttach.vue'),
 }
 
 export function resolveExerciseComponent(name: string): Component | null {

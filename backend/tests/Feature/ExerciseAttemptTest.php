@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Exercise;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Models\UserCollection;
 use App\Models\UserSkillMastery;
 use Database\Seeders\BadgeSeeder;
 use Database\Seeders\ExerciseSeeder;
@@ -101,5 +102,98 @@ class ExerciseAttemptTest extends TestCase
             ->postJson("/api/exercises/{$exercise->id}/attempt", [])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['correct']);
+    }
+
+    public function test_meta_rebels_captured_writes_user_collection_rows(): void
+    {
+        $user = User::factory()->create();
+        $availableLesson = Lesson::where('slug', 'l-1-1-1-vowel-lock-in')->firstOrFail();
+        $exercise = $availableLesson->exercises()->orderBy('order')->first();
+
+        $response = $this->actingAs($user)->postJson(
+            "/api/exercises/{$exercise->id}/attempt",
+            ['correct' => true, 'meta' => ['rebels_captured' => ['traduccion', 'explicacion']]]
+        );
+
+        $response->assertOk()->assertJsonPath('rebels_captured', ['traduccion', 'explicacion']);
+        $this->assertSame(
+            2,
+            UserCollection::where('user_id', $user->id)
+                ->where('collectible_type', 'rebel_word')
+                ->whereIn('collectible_key', ['traduccion', 'explicacion'])
+                ->count()
+        );
+    }
+
+    public function test_meta_rebels_captured_is_idempotent_on_re_capture(): void
+    {
+        $user = User::factory()->create();
+        $availableLesson = Lesson::where('slug', 'l-1-1-1-vowel-lock-in')->firstOrFail();
+        $exercise = $availableLesson->exercises()->orderBy('order')->first();
+
+        // First capture.
+        $this->actingAs($user)->postJson(
+            "/api/exercises/{$exercise->id}/attempt",
+            ['correct' => true, 'meta' => ['rebels_captured' => ['traduccion']]]
+        );
+
+        // Re-capture — newly_inserted list should be empty.
+        $response = $this->actingAs($user)->postJson(
+            "/api/exercises/{$exercise->id}/attempt",
+            ['correct' => true, 'meta' => ['rebels_captured' => ['traduccion']]]
+        );
+
+        $response->assertOk()->assertJsonPath('rebels_captured', []);
+        $this->assertSame(
+            1,
+            UserCollection::where('user_id', $user->id)
+                ->where('collectible_type', 'rebel_word')
+                ->where('collectible_key', 'traduccion')
+                ->count()
+        );
+    }
+
+    public function test_meta_vocab_delta_increments_user_counter(): void
+    {
+        $user = User::factory()->create(['vocab_counter' => 5]);
+        $availableLesson = Lesson::where('slug', 'l-1-1-1-vowel-lock-in')->firstOrFail();
+        $exercise = $availableLesson->exercises()->orderBy('order')->first();
+
+        $response = $this->actingAs($user)->postJson(
+            "/api/exercises/{$exercise->id}/attempt",
+            ['correct' => true, 'meta' => ['vocab_delta' => 1]]
+        );
+
+        $response->assertOk()->assertJsonPath('vocab_total', 6);
+        $this->assertSame(6, (int) $user->fresh()->vocab_counter);
+    }
+
+    public function test_meta_vocab_delta_rejects_negative_and_oversize(): void
+    {
+        $user = User::factory()->create();
+        $availableLesson = Lesson::where('slug', 'l-1-1-1-vowel-lock-in')->firstOrFail();
+        $exercise = $availableLesson->exercises()->orderBy('order')->first();
+
+        $this->actingAs($user)->postJson(
+            "/api/exercises/{$exercise->id}/attempt",
+            ['correct' => true, 'meta' => ['vocab_delta' => -1]]
+        )->assertStatus(422);
+
+        $this->actingAs($user)->postJson(
+            "/api/exercises/{$exercise->id}/attempt",
+            ['correct' => true, 'meta' => ['vocab_delta' => 11]]
+        )->assertStatus(422);
+    }
+
+    public function test_meta_rebels_captured_rejects_more_than_ten_keys(): void
+    {
+        $user = User::factory()->create();
+        $availableLesson = Lesson::where('slug', 'l-1-1-1-vowel-lock-in')->firstOrFail();
+        $exercise = $availableLesson->exercises()->orderBy('order')->first();
+
+        $this->actingAs($user)->postJson(
+            "/api/exercises/{$exercise->id}/attempt",
+            ['correct' => true, 'meta' => ['rebels_captured' => array_fill(0, 11, 'x')]]
+        )->assertStatus(422);
     }
 }
